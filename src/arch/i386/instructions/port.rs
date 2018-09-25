@@ -8,14 +8,13 @@ impl Port {
         Port { port }
     }
 
-    #[allow(dead_code)]
     #[inline]
     pub unsafe fn read(&mut self) -> u8 {
         let res: u8;
 
         asm!("inb $1, $0\n\t"
-             : "=a" (res)
-             : "d" (self.port)
+             : "={ax}" (res)
+             : "{dx}" (self.port)
              :: "volatile");
 
         res

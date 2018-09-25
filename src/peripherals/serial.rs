@@ -1,3 +1,5 @@
+#![macro_use]
+
 use core::fmt;
 
 use bitfield::*;

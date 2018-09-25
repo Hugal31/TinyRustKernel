@@ -65,7 +65,7 @@ impl GDTEntry {
 #[repr(C, packed)]
 pub struct GDTR {
     pub limit: u16,
-    pub base: *const [GDTEntry],
+    pub base: u32,
 }
 
 pub fn set_lgdt(gdtr: &GDTR) {

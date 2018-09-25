@@ -11,6 +11,9 @@ static GDT: [lgdt::GDTEntry; 6] = [
     lgdt::GDTEntry::new_tss_segment(),
 ];
 
+pub const KERNEL_CODE_SEGMENT: u16 = (size_of::<lgdt::GDTEntry>() as u16 * 1);
+pub const KERNEL_DATA_SEGMENT: u16 = (size_of::<lgdt::GDTEntry>() as u16 * 2);
+
 pub fn init_memory() {
     load_gdt();
     set_protected_mode();
@@ -19,8 +22,8 @@ pub fn init_memory() {
 
 fn load_gdt() {
     let gdtr = lgdt::GDTR {
-        limit: size_of_val(&GDT) as u16,
-        base: &GDT,
+        limit: size_of_val(&GDT) as u16 - 1,
+        base: &GDT as *const _ as u32,
     };
 
     lgdt::set_lgdt(&gdtr);
@@ -47,7 +50,7 @@ fn init_segment_registers() {
         movw $0, %gs
         movw $0, %ss"
              :
-             : "{ax}" (size_of::<lgdt::GDTEntry>() as u16 * 2)
+             : "{ax}" (KERNEL_DATA_SEGMENT)
              :
              : "volatile");
 

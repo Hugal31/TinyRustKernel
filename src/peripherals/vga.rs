@@ -1,3 +1,5 @@
+#![macro_use]
+
 use core::fmt;
 
 use lazy_static::lazy_static;
@@ -15,6 +17,11 @@ lazy_static! {
         color_code: ColorCode::new(Color::White, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut TextBuffer) },
     });
+}
+
+#[macro_export]
+macro_rules! write_vga {
+    ($($arg:tt)*) => { write!(TEXT_WRITER.lock(), $($arg)*) }
 }
 
 #[allow(dead_code)]

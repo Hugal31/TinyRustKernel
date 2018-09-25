@@ -1,4 +1,5 @@
 pub mod lgdt;
+pub mod idt;
 
 mod port;
 

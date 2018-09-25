@@ -1,0 +1,4 @@
+catch exec
+disable $bpnum
+break *0x100b1f
+

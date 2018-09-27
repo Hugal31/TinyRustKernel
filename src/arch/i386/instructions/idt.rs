@@ -20,28 +20,19 @@ bitfield! {
 }
 
 impl IDTEntry {
-
-    fn new(typ: u8,
-           handler: HandlerFunc,
-           segment: u16,
-           dpl: DPL) -> IDTEntry {
+    fn new(typ: u8, handler: HandlerFunc, segment: u16, dpl: DPL) -> IDTEntry {
         IDTEntry(
             handler as u64 & 0xFFFF
                 | (segment as u64) << 16
                 | (typ as u64) << 40
                 | (dpl as u64) << 45
                 | 1 << 47
-                | ((handler as u64) >> 16) << 48
+                | ((handler as u64) >> 16) << 48,
         )
     }
 
-    pub fn new_interrupt_gate(handler: HandlerFunc,
-                              segment: u16,
-                              dpl: DPL) -> IDTEntry {
-        IDTEntry::new(IDT_INTERRUPT_GATE_32,
-                      handler,
-                      segment,
-                      dpl)
+    pub fn new_interrupt_gate(handler: HandlerFunc, segment: u16, dpl: DPL) -> IDTEntry {
+        IDTEntry::new(IDT_INTERRUPT_GATE_32, handler, segment, dpl)
     }
 }
 

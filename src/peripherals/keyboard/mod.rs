@@ -54,7 +54,7 @@ impl Key {
             Key::Enter => Some('\n'),
             Key::Space => Some(' '),
             Key::Char(c) => Some(c as char),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -95,7 +95,7 @@ struct ScanBuffer {
     read: u8,
     write: u8,
     overlap: bool,
-    buffer: [u8; ScanBuffer::SIZE]
+    buffer: [u8; ScanBuffer::SIZE],
 }
 
 impl ScanBuffer {
@@ -145,7 +145,7 @@ impl ScanBuffer {
 static BUFFER: Mutex<ScanBuffer> = Mutex::new(ScanBuffer::new());
 
 pub fn receive_scan(scan: u8) {
-    use crate::*;  // For write_vga;
+    use crate::*; // For write_vga;
 
     let mut modifiers = MODIFIERS.lock();
     modifiers.receive_scan(scan);

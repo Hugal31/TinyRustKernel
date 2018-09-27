@@ -1,13 +1,17 @@
 use core::marker::PhantomData;
 
 pub struct Port<T>
-    where T: ReadWriteFromPort {
+where
+    T: ReadWriteFromPort,
+{
     port: u16,
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T> Port<T>
-    where T: ReadWriteFromPort {
+where
+    T: ReadWriteFromPort,
+{
     pub fn new(port: u16) -> Port<T> {
         Port {
             port,

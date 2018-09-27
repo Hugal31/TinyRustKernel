@@ -1,5 +1,5 @@
-use core::slice;
 use core::marker::PhantomData;
+use core::slice;
 //use core::ffi::CStr;
 use bitfield::*;
 
@@ -47,9 +47,7 @@ impl MultibootInfo {
     /// I assume most bootloaders only support ascii anyway...
     pub fn cmdline(&self) -> Option<&str> {
         if self.flags.cmdline() {
-            let str_slice = unsafe {
-                slice::from_raw_parts(self.cmdline, strlen(self.cmdline))
-            };
+            let str_slice = unsafe { slice::from_raw_parts(self.cmdline, strlen(self.cmdline)) };
             Some(unsafe { ::core::str::from_utf8_unchecked(str_slice) })
         } else {
             None
@@ -59,7 +57,7 @@ impl MultibootInfo {
     /// Returns the addresses of the mods as u32
     pub fn mods(&self) -> Option<&[MultibootMod]> {
         if self.flags.mods() {
-            Some(unsafe{ slice::from_raw_parts(self.mods_addr, self.mods_count as usize) })
+            Some(unsafe { slice::from_raw_parts(self.mods_addr, self.mods_count as usize) })
         } else {
             None
         }
@@ -95,9 +93,7 @@ impl MultibootMod {
         if self.string.is_null() {
             None
         } else {
-            let str_slice = unsafe {
-                slice::from_raw_parts(self.string, strlen(self.string))
-            };
+            let str_slice = unsafe { slice::from_raw_parts(self.string, strlen(self.string)) };
             Some(unsafe { ::core::str::from_utf8_unchecked(str_slice) })
         }
     }

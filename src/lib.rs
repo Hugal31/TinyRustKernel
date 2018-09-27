@@ -39,7 +39,7 @@ static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
 };
 
 #[no_mangle]
-pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
+pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
         write_serial!("Wrong multiboot magic\n");
         abort();
@@ -83,8 +83,18 @@ extern "C" fn eh_personality() {}
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     if let Some(location) = info.location() {
-        write_serial!("panic occured {}, {}:{}", location.file(), location.line(), location.column());
-        write_vga!("panic occured {}, {}:{}", location.file(), location.line(), location.column());
+        write_serial!(
+            "panic occured {}, {}:{}",
+            location.file(),
+            location.line(),
+            location.column()
+        );
+        write_vga!(
+            "panic occured {}, {}:{}",
+            location.file(),
+            location.line(),
+            location.column()
+        );
     } else {
         write_serial!("panic occured");
         write_vga!("panic occured");

@@ -1,13 +1,13 @@
 mod handlers;
 
-use core::ops::Deref;
 use core::mem::size_of_val;
+use core::ops::Deref;
 
 use lazy_static::lazy_static;
 
 use super::memory::KERNEL_CODE_SEGMENT;
+use crate::arch::i386::instructions::idt::{lidt, IDTEntry, IDTR};
 use crate::arch::i386::instructions::lgdt::DPL;
-use crate::arch::i386::instructions::idt::{IDTEntry, IDTR, lidt};
 use crate::arch::i386::pic::PIC;
 use crate::arch::i386::pit::PIT;
 
@@ -46,15 +46,9 @@ lazy_static! {
     static ref IDT: [IDTEntry; 255] = {
         let mut idt = [IDTEntry(0); 255];
 
-        idt[0] = IDTEntry::new_interrupt_gate(isr_0,
-                                              KERNEL_CODE_SEGMENT,
-                                              DPL::Ring0);
-        idt[64] = IDTEntry::new_interrupt_gate(isr_64,
-                                               KERNEL_CODE_SEGMENT,
-                                               DPL::Ring0);
-        idt[65] = IDTEntry::new_interrupt_gate(isr_65,
-                                               KERNEL_CODE_SEGMENT,
-                                               DPL::Ring0);
+        idt[0] = IDTEntry::new_interrupt_gate(isr_0, KERNEL_CODE_SEGMENT, DPL::Ring0);
+        idt[64] = IDTEntry::new_interrupt_gate(isr_64, KERNEL_CODE_SEGMENT, DPL::Ring0);
+        idt[65] = IDTEntry::new_interrupt_gate(isr_65, KERNEL_CODE_SEGMENT, DPL::Ring0);
 
         idt
     };
@@ -64,7 +58,7 @@ pub fn init_interrupts() {
     load_idt();
 
     PIC.lock().init();
-    unsafe { PIT.lock().init_rate_generator() };
+    PIT.lock().set_rate_generator(100);
 
     enable();
 }

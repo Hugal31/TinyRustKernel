@@ -1,7 +1,7 @@
 use crate::arch::i386::instructions::Port;
 use crate::arch::i386::pic::PIC;
-use crate::peripherals::timer;
 use crate::peripherals::keyboard;
+use crate::peripherals::timer;
 
 use super::InterruptContext;
 

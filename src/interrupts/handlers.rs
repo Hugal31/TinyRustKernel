@@ -20,15 +20,34 @@ pub fn keyboard_handler(_context: &mut InterruptContext) {
 }
 
 // TODO Use bingen ?
+const SYSCALL_WRITE: u32 = 1;
 const SYSCALL_GETTICK: u32 = 4;
 
 #[allow(safe_packed_borrows)]
 pub fn syscall_handler(context: &mut InterruptContext) {
-    use crate::peripherals::timer::uptime;
     let ret = match context.eax {
-        SYSCALL_GETTICK => uptime() as u32,
+        SYSCALL_WRITE => syscall_write(context.ebx as *const u8, context.ecx as usize),
+        SYSCALL_GETTICK => syscall_gettick(),
         _ => ::core::u32::MAX,
     };
 
     context.eax = ret;
+}
+
+fn syscall_write(buffer: *const u8, size: usize) -> u32 {
+    use crate::peripherals::serial::SERIAL_PORT;
+
+    let mut serial = SERIAL_PORT.lock();
+    let mut c = 0;
+    while c < size {
+        serial.write_byte(unsafe { *buffer.add(c) });
+        c += 1;
+    }
+
+    c as u32
+}
+
+fn syscall_gettick() -> u32 {
+    use crate::peripherals::timer::uptime;
+    uptime() as u32
 }

@@ -20,10 +20,10 @@ macro_rules! write_serial {
 }
 
 pub struct SerialPort {
-    rbr_thr_and_dll: Port,
-    ier_and_dlm: Port,
-    iir_and_fcr: Port,
-    lcr: Port,
+    rbr_thr_and_dll: Port<u8>,
+    ier_and_dlm: Port<u8>,
+    iir_and_fcr: Port<u8>,
+    lcr: Port<u8>,
 }
 
 // TODO Implement read

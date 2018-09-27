@@ -8,10 +8,13 @@ use lazy_static::lazy_static;
 use super::memory::KERNEL_CODE_SEGMENT;
 use crate::arch::i386::instructions::lgdt::DPL;
 use crate::arch::i386::instructions::idt::{IDTEntry, IDTR, lidt};
+use crate::arch::i386::pic::PIC;
+use crate::arch::i386::pit::PIT;
 
-// TODO Use #[naked] and asm! when stabilized
+// TODO Use #[naked] and asm!
 extern "C" {
     fn isr_0() -> !;
+    fn isr_64() -> !;
     fn isr_65() -> !;
 }
 
@@ -32,10 +35,10 @@ pub struct InterruptContext {
 
 #[no_mangle]
 pub extern "C" fn isr_generic_handler(context: &mut InterruptContext) {
-    use crate::*;
-    write_serial!("Context: {:#?}", context);
-    if context.interrupt_number == 65 {
-        handlers::keyboard_handler(context);
+    match context.interrupt_number {
+        64 => handlers::pit_handler(context),
+        65 => handlers::keyboard_handler(context),
+        _ => (),
     }
 }
 
@@ -46,6 +49,9 @@ lazy_static! {
         idt[0] = IDTEntry::new_interrupt_gate(isr_0,
                                               KERNEL_CODE_SEGMENT,
                                               DPL::Ring0);
+        idt[64] = IDTEntry::new_interrupt_gate(isr_64,
+                                               KERNEL_CODE_SEGMENT,
+                                               DPL::Ring0);
         idt[65] = IDTEntry::new_interrupt_gate(isr_65,
                                                KERNEL_CODE_SEGMENT,
                                                DPL::Ring0);
@@ -57,7 +63,8 @@ lazy_static! {
 pub fn init_interrupts() {
     load_idt();
 
-    init_pic();
+    PIC.lock().init();
+    unsafe { PIT.lock().init_rate_generator() };
 
     enable();
 }
@@ -69,41 +76,6 @@ fn load_idt() {
     };
 
     lidt(&idtr);
-}
-
-// TODO Move
-use crate::arch::i386::instructions::Port;
-
-fn init_pic() {
-    let mut master_a = Port::new(0x20);
-    let mut master_b = Port::new(0x21);
-    let mut slave_a = Port::new(0xA0);
-    let mut slave_b = Port::new(0xA1);
-
-    unsafe {
-        // ICW1
-        master_a.write(0x11);
-        slave_a.write(0x11);
-
-        // ICW2
-        master_b.write(0x40);
-        slave_b.write(0x50);
-
-        // ICW3
-        master_b.write(0b10);
-        slave_b.write(0x2);
-
-        // ICW4
-        master_b.write(1);
-        slave_b.write(1);
-
-        // Mask all interrupts except keyboard
-        master_b.write(0xFD);
-    }
-}
-
-pub fn send_eoi_to_master() {
-    unsafe { Port::new(0x20).write(0x20) }
 }
 
 fn enable() {

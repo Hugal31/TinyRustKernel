@@ -50,7 +50,7 @@ pub enum Color {
 pub struct ColorCode(u8);
 
 impl ColorCode {
-    pub fn new(foreground: Color, background: Color) -> ColorCode {
+    pub const fn new(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
@@ -78,6 +78,11 @@ pub struct TextWriter {
 
 #[allow(dead_code)]
 impl TextWriter {
+    const CLEAR_CHAR: ScreenChar = ScreenChar {
+        ascii_character: b'\x00',
+        color_code: ColorCode::new(Color::White, Color::Black),
+    };
+
     pub fn set_cursor_position(&mut self, row: usize, column: usize) {
         assert!(row < TEXT_BUFFER_HEIGHT);
         assert!(column < TEXT_BUFFER_WIDTH);
@@ -92,8 +97,8 @@ impl TextWriter {
 
     pub fn disable_cursor(&mut self) {
         unsafe {
-            Port::new(0x3D4).write(0x0A);
-            Port::new(0x3D5).write(0x20);
+            Port::<u8>::new(0x3D4).write(0x0A);
+            Port::<u8>::new(0x3D5).write(0x20);
         }
     }
 
@@ -122,10 +127,7 @@ impl TextWriter {
     pub fn clear(&mut self) {
         for row in 0..TEXT_BUFFER_HEIGHT {
             for col in 0..TEXT_BUFFER_WIDTH {
-                self.buffer.chars[row][col].write(ScreenChar {
-                    ascii_character: b'\x00',
-                    color_code: ColorCode::new(Color::White, Color::Black),
-                });
+                self.buffer.chars[row][col].write(Self::CLEAR_CHAR);
             }
         }
 
@@ -157,6 +159,11 @@ impl TextWriter {
                 for col in 0..TEXT_BUFFER_WIDTH {
                     self.buffer.chars[row][col].write(self.buffer.chars[row + 1][col].read());
                 }
+            }
+
+            // Clear last line
+            for column in 0..TEXT_BUFFER_WIDTH {
+                self.buffer.chars[TEXT_BUFFER_HEIGHT - 1][column].write(Self::CLEAR_CHAR);
             }
         }
     }

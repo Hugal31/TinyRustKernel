@@ -16,6 +16,12 @@ isr_0:
 	pushl $0 // Interrupt number
 	jmp isr
 
+	.global isr_64
+isr_64:
+	pushl $0 // Mocked error code
+	pushl $64 // Interrupt number
+	jmp isr
+
 	.global isr_65
 isr_65:
 	pushl $0 // Mocked error code

@@ -16,6 +16,7 @@ extern crate volatile;
 mod arch;
 mod interrupts;
 mod memory;
+mod multiboot;
 mod peripherals;
 
 use core::fmt::Write;
@@ -38,7 +39,14 @@ static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
 };
 
 #[no_mangle]
-pub extern "C" fn k_main() {
+pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) {
+    if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
+        write_serial!("Wrong multiboot magic");
+        abort();
+    }
+
+    write_serial!("Multiboot infos: {:#x?}\n", infos);
+
     say_welcome();
 
     write_serial!("Init memory...");
@@ -49,11 +57,8 @@ pub extern "C" fn k_main() {
     init_interrupts();
     write_serial!("DONE!\n");
 
-    unsafe { asm!("movl $$42, %eax\n\tint $$0" ::: "eax" : "volatile"); }
+    write_serial!("Magic is 0x{:X}", magic);
 
-    write_serial!("Tada!");
-
-    // End
     unsafe { asm!("hlt\n\t" :::: "volatile") };
     loop {}
 }
@@ -66,6 +71,11 @@ fn say_welcome() {
     writer.write_raw(SPLASH_SCREEN);
 
     write_serial!("RedK booting!\n");
+}
+
+fn abort() -> ! {
+    unsafe { asm!("hlt\n\t" :::: "volatile") };
+    loop {}
 }
 
 #[lang = "eh_personality"]

@@ -28,8 +28,8 @@ isr_65:
 	pushl $65 // Interrupt number
 	jmp isr
 
-	.global isr_80
-isr_80:
+	.global isr_128
+isr_128:
 	pushl $0 // Mocked error code
-	pushl $80 // Interrupt number
+	pushl $128 // Interrupt number
 	jmp isr

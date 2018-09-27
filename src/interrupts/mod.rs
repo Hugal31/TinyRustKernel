@@ -16,6 +16,7 @@ extern "C" {
     fn isr_0() -> !;
     fn isr_64() -> !;
     fn isr_65() -> !;
+    fn isr_128() -> !;
 }
 
 #[repr(C, packed)]
@@ -34,10 +35,12 @@ pub struct InterruptContext {
 }
 
 #[no_mangle]
+#[allow(safe_packed_borrows)]
 pub extern "C" fn isr_generic_handler(context: &mut InterruptContext) {
     match context.interrupt_number {
         64 => handlers::pit_handler(context),
         65 => handlers::keyboard_handler(context),
+        128 => handlers::syscall_handler(context),
         _ => (),
     }
 }
@@ -49,6 +52,7 @@ lazy_static! {
         idt[0] = IDTEntry::new_interrupt_gate(isr_0, KERNEL_CODE_SEGMENT, DPL::Ring0);
         idt[64] = IDTEntry::new_interrupt_gate(isr_64, KERNEL_CODE_SEGMENT, DPL::Ring0);
         idt[65] = IDTEntry::new_interrupt_gate(isr_65, KERNEL_CODE_SEGMENT, DPL::Ring0);
+        idt[128] = IDTEntry::new_interrupt_gate(isr_128, KERNEL_CODE_SEGMENT, DPL::Ring3);
 
         idt
     };

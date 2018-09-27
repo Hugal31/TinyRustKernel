@@ -18,3 +18,17 @@ pub fn keyboard_handler(_context: &mut InterruptContext) {
     }
     PIC.lock().send_eoi_to_master();
 }
+
+// TODO Use bingen ?
+const SYSCALL_GETTICK: u32 = 4;
+
+#[allow(safe_packed_borrows)]
+pub fn syscall_handler(context: &mut InterruptContext) {
+    use crate::peripherals::timer::uptime;
+    let ret = match context.eax {
+        SYSCALL_GETTICK => uptime() as u32,
+        _ => ::core::u32::MAX,
+    };
+
+    context.eax = ret;
+}

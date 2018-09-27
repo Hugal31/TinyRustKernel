@@ -28,7 +28,7 @@ use self::memory::init_memory;
 use self::peripherals::serial::SERIAL_PORT;
 use self::peripherals::vga::{ScreenChar, TEXT_WRITER};
 
-// Must use to expose
+// NOTE: Must use to expose
 pub use self::interrupts::isr_generic_handler;
 
 static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
@@ -39,25 +39,14 @@ static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
 };
 
 #[no_mangle]
-pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) {
+pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
-        write_serial!("Wrong multiboot magic");
+        write_serial!("Wrong multiboot magic\n");
         abort();
     }
 
-    write_serial!("Multiboot infos: {:#x?}\n", infos);
-
     say_welcome();
-
-    write_serial!("Init memory...");
-    init_memory();
-    write_serial!("DONE!\n");
-
-    write_serial!("Init interrupts...");
-    init_interrupts();
-    write_serial!("DONE!\n");
-
-    write_serial!("Magic is 0x{:X}", magic);
+    do_system_init_steps();
 
     unsafe { asm!("hlt\n\t" :::: "volatile") };
     loop {}
@@ -71,6 +60,16 @@ fn say_welcome() {
     writer.write_raw(SPLASH_SCREEN);
 
     write_serial!("RedK booting!\n");
+}
+
+fn do_system_init_steps() {
+    write_serial!("Init memory...");
+    init_memory();
+    write_serial!("DONE!\n");
+
+    write_serial!("Init interrupts...");
+    init_interrupts();
+    write_serial!("DONE!\n");
 }
 
 fn abort() -> ! {

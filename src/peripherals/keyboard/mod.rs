@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod qwerty;
 
 use spin::Mutex;
@@ -140,7 +142,7 @@ impl ScanBuffer {
     }
 }
 
-static Buffer: Mutex<ScanBuffer> = Mutex::new(ScanBuffer::new());
+static BUFFER: Mutex<ScanBuffer> = Mutex::new(ScanBuffer::new());
 
 pub fn receive_scan(scan: u8) {
     use crate::*;  // For write_vga;

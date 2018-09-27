@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use spin::Mutex;
 use lazy_static::lazy_static;
 

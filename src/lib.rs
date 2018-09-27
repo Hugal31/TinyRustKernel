@@ -48,6 +48,8 @@ pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
     say_welcome();
     do_system_init_steps();
 
+    // TODO Restore cursor
+
     unsafe { asm!("hlt\n\t" :::: "volatile") };
     loop {}
 }

@@ -36,11 +36,15 @@ pub fn syscall_handler(context: &mut InterruptContext) {
 
 fn syscall_write(buffer: *const u8, size: usize) -> u32 {
     use crate::peripherals::serial::SERIAL_PORT;
+    use crate::peripherals::vga::TEXT_WRITER;
 
     let mut serial = SERIAL_PORT.lock();
+    let mut vga = TEXT_WRITER.lock();
     let mut c = 0;
     while c < size {
-        serial.write_byte(unsafe { *buffer.add(c) });
+        let byte = unsafe { *buffer.add(c) };
+        serial.write_byte(byte);
+        vga.write_byte(byte);
         c += 1;
     }
 

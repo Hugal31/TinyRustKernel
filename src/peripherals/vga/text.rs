@@ -15,9 +15,16 @@ lazy_static! {
         column_position: 0,
         row_position: 0,
         color_code: ColorCode::new(Color::White, Color::Black),
+        escape_mode: EscapeMode::Nop,
         buffer: unsafe { &mut *(0xb8000 as *mut TextBuffer) },
     });
 }
+
+const CONS_ESCAPE: u8 = 255;
+const CONS_CLEAR: u8 = 1;
+//const CONS_COLOR: u8 = 2;
+const CONS_SETX: u8 = 3;
+const CONS_SETY: u8 = 4;
 
 #[macro_export]
 macro_rules! write_vga {
@@ -73,7 +80,16 @@ pub struct TextWriter {
     column_position: usize,
     row_position: usize,
     color_code: ColorCode,
+    escape_mode: EscapeMode,
     buffer: &'static mut TextBuffer,
+}
+
+enum EscapeMode {
+    Nop,
+    Escape,
+    //Color,
+    SetY,
+    SetX,
 }
 
 #[allow(dead_code)]
@@ -103,8 +119,33 @@ impl TextWriter {
     }
 
     pub fn write_byte(&mut self, byte: u8) {
+        use self::EscapeMode::*;
+        match self.escape_mode {
+            Nop => self.write_byte_unescaped(byte),
+            Escape => match byte {
+                CONS_CLEAR => {
+                    self.clear();
+                    self.escape_mode = Nop;
+                }
+                CONS_SETX => self.escape_mode = SetX,
+                CONS_SETY => self.escape_mode = SetY,
+                _ => self.escape_mode = Nop,
+            },
+            SetX => {
+                self.column_position = (byte as usize) % TEXT_BUFFER_WIDTH;
+                self.escape_mode = Nop;
+            }
+            SetY => {
+                self.row_position = (byte as usize) % TEXT_BUFFER_HEIGHT;
+                self.escape_mode = Nop;
+            }
+        }
+    }
+
+    fn write_byte_unescaped(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
+            CONS_ESCAPE => self.escape_mode = EscapeMode::Escape,
             byte => {
                 if self.column_position >= TEXT_BUFFER_WIDTH {
                     self.new_line();

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
-use core::marker::PhantomData;
-use core::ptr;
+use core::slice;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use spin::Mutex;
@@ -11,7 +10,6 @@ use super::timer;
 use crate::arch::i386::instructions::Port;
 use crate::arch::i386::pit::PIT;
 
-// TODO Refactor with a slice
 static CURRENT_MELODY: Mutex<Option<Melody>> = Mutex::new(None);
 static CURRENT_TONE_END_DATE: AtomicUsize = AtomicUsize::new(0);
 
@@ -33,13 +31,6 @@ impl Tone {
         }
     }
 
-    pub const fn new_end() -> Self {
-        Tone {
-            frequency: 0,
-            duration: 0,
-        }
-    }
-
     fn is_end(&self) -> bool {
         self.frequency == 0
     }
@@ -49,8 +40,22 @@ pub fn play_frequency(frequency: u32) {
     PIT.lock().play_sound(frequency);
 }
 
-/// Chain of melody
-pub fn start_melody(melody: *const Tone, repeating: bool) {
+pub fn start_melody_from(melody: *const Tone, repeating: bool) {
+    let mut length = 0;
+    let mut cursor = melody;
+    let s = unsafe {
+        while !(&*cursor).is_end() {
+            length += 1;
+            cursor = cursor.add(1);
+        }
+
+        slice::from_raw_parts(melody, length)
+    };
+    start_melody(s, repeating);
+}
+
+// TODO Find other thing than 'static
+pub fn start_melody(melody: &'static [Tone], repeating: bool) {
     let mut current = CURRENT_MELODY.lock();
     let mut melody = Melody::new(melody, repeating);
     if let Some(tone) = melody.next() {
@@ -107,26 +112,18 @@ pub fn disable() {
 }
 
 struct Melody<'a> {
-    first: *const Tone,
-    current: *const Tone,
-    _marker: PhantomData<&'a Tone>,
+    tones: &'a [Tone],
+    index: usize,
+    repeating: bool,
 }
 
-// TODO Find better way?
-unsafe impl<'a> Send for Melody<'a> {}
-unsafe impl<'a> Sync for Melody<'a> {}
-
 impl<'a> Melody<'a> {
-    pub fn new(first: *const Tone, repeating: bool) -> Self {
+    pub fn new(tones: &'a [Tone], repeating: bool) -> Self {
         Melody {
-            first: if repeating { first } else { ptr::null() },
-            current: first,
-            _marker: PhantomData::default(),
+            tones,
+            index: 0,
+            repeating,
         }
-    }
-
-    fn is_repeating(&self) -> bool {
-        !self.first.is_null()
     }
 }
 
@@ -134,23 +131,16 @@ impl<'a> Iterator for Melody<'a> {
     type Item = &'a Tone;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO Refactor
-        let current = unsafe { &*self.current };
-        if current.is_end() {
-            if self.is_repeating() {
-                let first = unsafe { &*self.first };
-                if !first.is_end() {
-                    self.current = unsafe { self.first.add(1) };
-                    Some(first)
-                } else {
-                    None
-                }
+        if self.index >= self.tones.len() {
+            if self.repeating {
+                self.index = 0
             } else {
-                None
+                return None;
             }
-        } else {
-            self.current = unsafe { self.current.add(1) };
-            Some(current)
         }
+
+        let tone = &self.tones[self.index];
+        self.index += 1;
+        Some(tone)
     }
 }

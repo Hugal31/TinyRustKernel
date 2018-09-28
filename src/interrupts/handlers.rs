@@ -63,7 +63,7 @@ fn syscall_gettick() -> u32 {
 }
 
 fn syscall_playsound(melody: *const speaker::Tone, repeat: bool) -> u32 {
-    speaker::start_melody(melody, repeat);
+    speaker::start_melody_from(melody, repeat);
 
     0
 }

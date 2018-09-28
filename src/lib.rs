@@ -48,7 +48,6 @@ const STARTUP_MELODY: &[Tone] = &[
     Tone::new(440, 500), // La 3
     Tone::new(659, 330), // Mi 4
     Tone::new(494, 500), // Mi 3
-    Tone::new_end(),
 ];
 
 #[no_mangle]
@@ -87,7 +86,7 @@ fn say_welcome() {
     // Display splash screen
     writer.write_raw(SPLASH_SCREEN);
 
-    start_melody(&STARTUP_MELODY[0], false);
+    start_melody(STARTUP_MELODY, false);
 
     let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
     peripherals::timer::sleep(duration as usize);

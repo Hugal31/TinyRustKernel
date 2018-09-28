@@ -63,7 +63,7 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     // TODO Restore cursor
 
     if let Some(m) = infos.mods().and_then(|m| m.first()) {
-        let fs = match init_file_system(m) {
+        let _fs = match init_file_system(m) {
             Ok(fs) => fs,
             Err(e) => {
                 write_serial!("File system error: {:?}\n", e);
@@ -89,7 +89,7 @@ fn say_welcome() {
     start_melody(STARTUP_MELODY, false);
 
     let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
-    peripherals::timer::sleep(duration as usize);
+    //peripherals::timer::sleep(duration as usize);
 }
 
 fn do_system_init_steps() {

@@ -37,27 +37,27 @@ impl<'a> Kfs<'a> {
             return Err(Error::MemTooSmall);
         }
 
-        let superblock = Superblock::check::<'static>(start as _)?;
+        let superblock = Superblock::checked::<'static>(start as _)?;
 
         if mem_size < superblock.blk_cnt * BLK_SIZE {
             return Err(Error::MemTooSmall);
         }
 
-        Kfs {
-            superblock,
-        }.validate()
+        Kfs { superblock }.validate()
     }
 
     fn validate(self) -> Result<Self> {
-        // TODO Iterate over inode and indirects to check all indexes
-        Ok(self)
+        let result: Result<()> = self.inodes().map(|i| i.validate(&self)).collect();
+        result.map(|()| self)
     }
 
     fn blocks(&self) -> &[Block] {
-        unsafe { slice::from_raw_parts(
-            transmute(self.superblock as *const Superblock),
-            self.superblock.blk_cnt
-        ) }
+        unsafe {
+            slice::from_raw_parts(
+                transmute(self.superblock as *const Superblock),
+                self.superblock.blk_cnt,
+            )
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -69,17 +69,8 @@ impl<'a> Kfs<'a> {
     }
 
     /// Return the size readed from the inode
-    pub fn read(&self, inode: &Inode, buffer: &mut [u8], _initial_cursor: usize) -> usize {
-        let mut cursor = 0;
-
-        // TODO code block iterators
-        if inode.direct_blocks_idx().len() != 1 {
-            unimplemented!();
-        }
-
-        let block_idx = inode.direct_blocks_idx()[0];
-        let block = unsafe { self.blocks()[block_idx].as_data() };
-        block.read(buffer, 0)
+    pub fn read(&self, inode: &Inode, buffer: &mut [u8]) -> usize {
+        inode.blocks(self).map(|data| data.read(buffer, 0)).sum()
     }
 }
 
@@ -96,7 +87,7 @@ struct Superblock {
 }
 
 impl Superblock {
-    fn check<'a>(block_addr: *const Superblock) -> Result<&'a Superblock> {
+    fn checked<'a>(block_addr: *const Superblock) -> Result<&'a Superblock> {
         let block = unsafe { &*block_addr };
         if block.magic != MAGIC {
             return Err(Error::InvalidMagic);
@@ -143,20 +134,16 @@ pub struct Inode {
     idx: usize,
     blk_count: usize,
     next_inode: usize,
-    d_blk_cnt: usize,
-    i_blk_cnt: usize,
+    pub d_blk_cnt: usize,
+    pub i_blk_cnt: usize,
     d_blks: [usize; MAX_DIRECT_BLK],
     i_blks: [usize; MAX_INDIRECT_BLK],
     checksum: u32,
 }
 
 impl Inode {
-    fn checked<'a>(inode_addr: *const Inode) -> Result<&'a Inode> {
-        let inode = unsafe { &*inode_addr };
-        inode.check().map(|()| inode)
-    }
-
-    fn check<'a>(&self) -> Result<()> {
+    fn validate(&self, kfs: &Kfs) -> Result<()> {
+        // Validate checksum
         let self_begin = unsafe {
             slice::from_raw_parts(
                 transmute(self as *const Inode),
@@ -168,11 +155,46 @@ impl Inode {
             return Err(Error::InvalidChecksum);
         }
 
-        Ok(())
+        // Check if next inode and number of blk count are not out of bounds
+        if self.d_blk_cnt >= MAX_DIRECT_BLK
+            || self.i_blk_cnt >= MAX_INDIRECT_BLK
+            || self.next_inode >= kfs.superblock.blk_cnt
+        {
+            return Err(Error::OutOfBounds);
+        }
+
+        // Check if direct and indirects blocks are out of bounds
+        for &index in self
+            .direct_blocks_idx()
+            .iter()
+            .chain(self.indirect_blocks_idx())
+        {
+            if index >= kfs.superblock.blk_cnt {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        // TODO Check indirect blocks
+        self.blocks(kfs).map(DataBlock::validate).collect()
     }
 
     fn direct_blocks_idx(&self) -> &[usize] {
         unsafe { slice::from_raw_parts(&self.d_blks[0], self.d_blk_cnt) }
+    }
+
+    fn indirect_blocks_idx(&self) -> &[usize] {
+        unsafe { slice::from_raw_parts(&self.i_blks[0], self.i_blk_cnt) }
+    }
+
+    fn blocks<'a>(&'a self, kfs: &'a Kfs) -> impl Iterator<Item = &'a DataBlock> {
+        if self.d_blk_cnt == 0 {
+            unimplemented!();
+        }
+
+        DataBlockIterator {
+            kfs,
+            ids: self.direct_blocks_idx(),
+        }
     }
 
     pub fn filename(&self) -> &str {
@@ -211,7 +233,7 @@ impl<'a, 'k: 'a> Iterator for InodeIterator<'a, 'k> {
 struct DataBlock {
     index: u32,
     usage: usize,
-    checksum: usize,
+    checksum: u32,
     data: [u8; BLK_SIZE - 3 * 4],
 }
 
@@ -224,18 +246,66 @@ impl DataBlock {
         }
 
         let to_copy = min(self.usage - initial_cursor, buffer.len());
-        unsafe { (&self.data[0] as *const u8).copy_to_nonoverlapping(&mut buffer[0], to_copy) };
+        buffer.copy_from_slice(&self.data[initial_cursor..to_copy]);
         to_copy
+    }
+
+    fn validate(&self) -> Result<()> {
+        let self_begin = unsafe {
+            slice::from_raw_parts(
+                transmute(self as *const DataBlock),
+                size_of_val(&self.index) + size_of_val(&self.usage),
+            )
+        };
+
+        // Introduce false checksum because the algorithm check on all the data,
+        // and expect the checksum to be equal to 0.
+        let false_checksum = [0; size_of::<u32>()];
+        let checksum = adler_checksum(
+            self_begin
+                .iter()
+                .chain(false_checksum.iter())
+                .chain(self.data.iter()),
+        );
+        if checksum != self.checksum
+        {
+            Err(Error::InvalidChecksum)
+        } else {
+            Ok(())
+        }
     }
 }
 
-fn adler_checksum(data: &[u8]) -> u32 {
+struct DataBlockIterator<'a, 'k: 'a> {
+    kfs: &'a Kfs<'k>,
+    ids: &'a [usize],
+}
+
+impl<'a, 'k: 'a> Iterator for DataBlockIterator<'a, 'k> {
+    type Item = &'a DataBlock;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.ids.len() == 0 {
+            None
+        } else {
+            let id = self.ids[0];
+            let block = unsafe { self.kfs.blocks()[id].as_data() };
+            self.ids = &self.ids[1..];
+            Some(block)
+        }
+    }
+}
+
+fn adler_checksum<'a, I>(data: I) -> u32
+where
+    I: IntoIterator<Item = &'a u8>,
+{
     const ALDER32_MOD: u32 = 65521;
 
     let mut a: u32 = 1;
     let mut b: u32 = 0;
 
-    for c in data.iter().cloned() {
+    for &c in data {
         a = (a + c as u32) % ALDER32_MOD;
         b = (a + b) % ALDER32_MOD;
     }

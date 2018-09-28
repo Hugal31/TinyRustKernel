@@ -11,17 +11,18 @@ use super::timer;
 use crate::arch::i386::instructions::Port;
 use crate::arch::i386::pit::PIT;
 
+// TODO Refactor with a slice
 static CURRENT_MELODY: Mutex<Option<Melody>> = Mutex::new(None);
 static CURRENT_TONE_END_DATE: AtomicUsize = AtomicUsize::new(0);
 
 /// Represent a  not in the melody
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(C)]
 pub struct Tone {
     /// Frequency in hertz
-    frequency: u32,
+    pub frequency: u32,
     /// Duration in milliseconds
-    duration: u32,
+    pub duration: u32,
 }
 
 impl Tone {

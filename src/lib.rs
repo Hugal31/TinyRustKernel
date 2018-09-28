@@ -16,6 +16,7 @@ extern crate volatile;
 
 mod arch;
 mod interrupts;
+mod kfs;
 mod memory;
 mod multiboot;
 mod peripherals;
@@ -42,16 +43,16 @@ static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
 use crate::peripherals::speaker::*;
 
 const STARTUP_MELODY: &[Tone] = &[
-    Tone::new(1381, 400), // Mi 4
-    Tone::new(988, 400),  // Si 3
-    Tone::new(880, 500),
-    Tone::new(1381, 330), // Mi 4
-    Tone::new(988, 500),
+    Tone::new(659, 400), // Mi 4
+    Tone::new(494, 400), // Si 3
+    Tone::new(440, 500), // La 3
+    Tone::new(659, 330), // Mi 4
+    Tone::new(494, 500), // Mi 3
     Tone::new_end(),
 ];
 
 #[no_mangle]
-pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
+pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
         write_serial!("Wrong multiboot magic\n");
         abort();
@@ -62,8 +63,19 @@ pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
 
     // TODO Restore cursor
 
-    unsafe { asm!("hlt\n\t" :::: "volatile") };
-    loop {}
+    if let Some(m) = infos.mods().and_then(|m| m.first()) {
+        let fs = match init_file_system(m) {
+            Ok(fs) => fs,
+            Err(e) => {
+                write_serial!("File system error: {:?}\n", e);
+                abort();
+            }
+        };
+    }
+
+    loop {
+        unsafe { asm!("hlt\n\t" :::: "volatile") }
+    }
 }
 
 fn say_welcome() {
@@ -76,6 +88,9 @@ fn say_welcome() {
     writer.write_raw(SPLASH_SCREEN);
 
     start_melody(&STARTUP_MELODY[0], false);
+
+    let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
+    peripherals::timer::sleep(duration as usize);
 }
 
 fn do_system_init_steps() {
@@ -88,10 +103,17 @@ fn do_system_init_steps() {
     write_serial!("DONE!\n");
 }
 
-fn abort() -> ! {
-    unsafe { asm!("hlt\n\t" :::: "volatile") };
-    loop {}
+fn init_file_system(m: &multiboot::MultibootMod) -> Result<kfs::Kfs, kfs::Error> {
+    kfs::Kfs::new(m.mod_start, m.mod_end)
 }
+
+fn abort() -> ! {
+    loop {
+        unsafe { asm!("hlt\n\t" :::: "volatile") };
+    }
+}
+
+// Languages elements
 
 #[lang = "eh_personality"]
 extern "C" fn eh_personality() {}

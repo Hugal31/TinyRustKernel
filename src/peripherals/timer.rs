@@ -2,11 +2,16 @@
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+use super::speaker;
+
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Tick the clock. Should be called every hundredth of second.
+// TODO Disable interrupt
 pub fn tick() {
-    COUNTER.fetch_add(1, Ordering::AcqRel);
+    let time = 1 + COUNTER.fetch_add(1, Ordering::AcqRel);
+
+    speaker::tick(time * 10);
 }
 
 /// Returns the uptime in milliseconds

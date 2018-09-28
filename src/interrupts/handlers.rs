@@ -1,6 +1,7 @@
 use crate::arch::i386::instructions::Port;
 use crate::arch::i386::pic::PIC;
 use crate::peripherals::keyboard;
+use crate::peripherals::speaker;
 use crate::peripherals::timer;
 
 use super::InterruptContext;
@@ -22,12 +23,17 @@ pub fn keyboard_handler(_context: &mut InterruptContext) {
 // TODO Use bingen ?
 const SYSCALL_WRITE: u32 = 1;
 const SYSCALL_GETTICK: u32 = 4;
+const SYSCALL_PLAYSOUND: u32 = 11;
 
+// TODO Check pointers come from userland, and copy them ?
 #[allow(safe_packed_borrows)]
 pub fn syscall_handler(context: &mut InterruptContext) {
     let ret = match context.eax {
         SYSCALL_WRITE => syscall_write(context.ebx as *const u8, context.ecx as usize),
         SYSCALL_GETTICK => syscall_gettick(),
+        SYSCALL_PLAYSOUND => {
+            syscall_playsound(context.ebx as *const speaker::Tone, context.ecx != 0)
+        }
         _ => ::core::u32::MAX,
     };
 
@@ -54,4 +60,10 @@ fn syscall_write(buffer: *const u8, size: usize) -> u32 {
 fn syscall_gettick() -> u32 {
     use crate::peripherals::timer::uptime;
     uptime() as u32
+}
+
+fn syscall_playsound(melody: *const speaker::Tone, repeat: bool) -> u32 {
+    speaker::start_melody(melody, repeat);
+
+    0
 }

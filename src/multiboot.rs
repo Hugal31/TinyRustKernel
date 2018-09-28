@@ -1,3 +1,5 @@
+#![allow(safe_packed_borrows)]
+
 use core::marker::PhantomData;
 use core::slice;
 //use core::ffi::CStr;

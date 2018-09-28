@@ -3,6 +3,7 @@
 #![feature(core_intrinsics)]
 #![feature(global_asm)]
 #![feature(min_const_fn)]
+#![feature(option_replace)]
 #![feature(naked_functions)]
 #![feature(const_transmute)]
 #![feature(lang_items)]
@@ -38,6 +39,17 @@ static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
     )))
 };
 
+use crate::peripherals::speaker::*;
+
+const STARTUP_MELODY: &[Tone] = &[
+    Tone::new(1381, 400), // Mi 4
+    Tone::new(988, 400),  // Si 3
+    Tone::new(880, 500),
+    Tone::new(1381, 330), // Mi 4
+    Tone::new(988, 500),
+    Tone::new_end(),
+];
+
 #[no_mangle]
 pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
@@ -45,8 +57,8 @@ pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
         abort();
     }
 
-    say_welcome();
     do_system_init_steps();
+    say_welcome();
 
     // TODO Restore cursor
 
@@ -55,13 +67,15 @@ pub extern "C" fn k_main(magic: u32, _infos: &multiboot::MultibootInfo) -> ! {
 }
 
 fn say_welcome() {
+    write_serial!("RedK booting!\n");
+
     let mut writer = TEXT_WRITER.lock();
     writer.disable_cursor();
 
     // Display splash screen
     writer.write_raw(SPLASH_SCREEN);
 
-    write_serial!("RedK booting!\n");
+    start_melody(&STARTUP_MELODY[0], false);
 }
 
 fn do_system_init_steps() {

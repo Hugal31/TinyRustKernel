@@ -12,3 +12,13 @@ bitfield = "0.13"
 lazy_static = { version = "1", features = ["spin_no_std"] }
 spin = "*"
 "volatile" = "0.2"
+
+[dependencies.i386]
+path = "i386"
+version = "0.1"
+features = ["no_std"]
+
+[dependencies.vga]
+path = "vga"
+version = "0.1"
+features = ["no_std"]

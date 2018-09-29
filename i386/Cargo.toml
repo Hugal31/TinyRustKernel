@@ -1,0 +1,14 @@
+[package]
+name = "i386"
+version = "0.1.0"
+authors = ["Hugo Laloge <hugo.laloge@epitech.eu>"]
+edition = "2018"
+
+[dependencies]
+bitfield = "0.13"
+lazy_static = { version = "1" }
+spin = "*"
+"volatile" = "0.2"
+
+[features]
+no_std = ["lazy_static/spin_no_std"]

@@ -1,0 +1,15 @@
+[package]
+name = "vga"
+version = "0.1.0"
+authors = ["Hugo Laloge <hugo.laloge@epitech.eu>"]
+edition = "2018"
+
+[dependencies]
+lazy_static = { version = "1" }
+
+[dependencies.i386]
+version = "0.1"
+path = "../i386"
+
+[features]
+no_std = ["i386/no_std", "lazy_static/spin_no_std"]

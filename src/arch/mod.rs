@@ -1,1 +1,1 @@
-pub mod i386;
+pub extern crate i386;

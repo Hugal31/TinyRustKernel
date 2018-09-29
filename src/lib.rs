@@ -13,6 +13,7 @@ extern crate bitfield;
 extern crate lazy_static;
 extern crate spin;
 extern crate volatile;
+extern crate vga; // TODO Move
 
 mod arch;
 mod interrupts;
@@ -59,18 +60,6 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
 
     do_system_init_steps();
     say_welcome();
-
-    // TODO Restore cursor
-
-    if let Some(m) = infos.mods().and_then(|m| m.first()) {
-        let _fs = match init_file_system(m) {
-            Ok(fs) => fs,
-            Err(e) => {
-                write_serial!("File system error: {:?}\n", e);
-                abort();
-            }
-        };
-    }
 
     loop {
         unsafe { asm!("hlt\n\t" :::: "volatile") }

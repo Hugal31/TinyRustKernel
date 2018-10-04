@@ -13,9 +13,19 @@ lazy_static = { version = "1", features = ["spin_no_std"] }
 spin = "*"
 "volatile" = "0.2"
 
+[dependencies.elf]
+path = "elf"
+version = "0.1"
+features = ["no_std"]
+
 [dependencies.i386]
 path = "i386"
 version = "0.1"
+features = ["no_std"]
+
+[dependencies.no_std_io]
+version = "0.1"
+path = "no_std_io"
 features = ["no_std"]
 
 [dependencies.vga]

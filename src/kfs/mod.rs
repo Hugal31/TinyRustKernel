@@ -1,10 +1,14 @@
 #![allow(safe_packed_borrows)]
 
+mod reader;
+
+use no_std_io::{Read, Seek};
+
 use core::intrinsics::transmute;
 use core::mem::{size_of, size_of_val};
 use core::slice;
 
-use crate::*; // TODO Remove
+use self::reader::DataBlockReader;
 
 const MAGIC: u32 = 0xd35f9caa;
 const NAME_SIZE: usize = 32;
@@ -69,8 +73,8 @@ impl<'a> Kfs<'a> {
     }
 
     /// Return the size readed from the inode
-    pub fn read(&self, inode: &Inode, buffer: &mut [u8]) -> usize {
-        inode.blocks(self).map(|data| data.read(buffer, 0)).sum()
+    pub fn reader(&'a self, inode: &'a Inode) -> impl Read + Seek + 'a {
+        DataBlockReader::new(inode.blocks(self))
     }
 }
 
@@ -134,8 +138,8 @@ pub struct Inode {
     idx: usize,
     blk_count: usize,
     next_inode: usize,
-    pub d_blk_cnt: usize,
-    pub i_blk_cnt: usize,
+    d_blk_cnt: usize,
+    i_blk_cnt: usize,
     d_blks: [usize; MAX_DIRECT_BLK],
     i_blks: [usize; MAX_INDIRECT_BLK],
     checksum: u32,
@@ -186,7 +190,7 @@ impl Inode {
         unsafe { slice::from_raw_parts(&self.i_blks[0], self.i_blk_cnt) }
     }
 
-    fn blocks<'a>(&'a self, kfs: &'a Kfs) -> impl Iterator<Item = &'a DataBlock> {
+    fn blocks<'a>(&'a self, kfs: &'a Kfs) -> DataBlockIterator {
         if self.d_blk_cnt == 0 {
             unimplemented!();
         }
@@ -246,7 +250,7 @@ impl DataBlock {
         }
 
         let to_copy = min(self.usage - initial_cursor, buffer.len());
-        buffer.copy_from_slice(&self.data[initial_cursor..to_copy]);
+        buffer.copy_from_slice(&self.data[initial_cursor..initial_cursor + to_copy]);
         to_copy
     }
 
@@ -267,8 +271,7 @@ impl DataBlock {
                 .chain(false_checksum.iter())
                 .chain(self.data.iter()),
         );
-        if checksum != self.checksum
-        {
+        if checksum != self.checksum {
             Err(Error::InvalidChecksum)
         } else {
             Ok(())
@@ -276,6 +279,7 @@ impl DataBlock {
     }
 }
 
+#[derive(Clone)]
 struct DataBlockIterator<'a, 'k: 'a> {
     kfs: &'a Kfs<'k>,
     ids: &'a [usize],

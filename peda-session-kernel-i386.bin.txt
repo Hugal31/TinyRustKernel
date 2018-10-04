@@ -1,6 +1,0 @@
-catch exec
-disable $bpnum
-break isr_65
-break isr
-break isr
-

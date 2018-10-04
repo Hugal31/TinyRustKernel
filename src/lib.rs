@@ -10,10 +10,12 @@
 #![no_std]
 
 extern crate bitfield;
+extern crate elf;
 extern crate lazy_static;
+extern crate no_std_io;
 extern crate spin;
-extern crate volatile;
-extern crate vga; // TODO Move
+extern crate vga;
+extern crate volatile; // TODO Move
 
 mod arch;
 mod interrupts;
@@ -61,6 +63,29 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     do_system_init_steps();
     say_welcome();
 
+    if let Some(executable) = infos.cmdline().and_then(|cmdline| {
+        if cmdline.starts_with('/') {
+            Some(&cmdline[1..])
+        } else {
+            None
+        }
+    }) {
+        if let Ok(fs) = init_file_system(&infos.mods().unwrap()[0]) {
+            if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
+                use no_std_io::Seek;
+                let mut reader = fs.reader(inode);
+                let size = reader.seek(no_std_io::SeekFrom::End(0)).unwrap();
+                reader.seek(no_std_io::SeekFrom::Start(0)).ok();
+                let mut elf = elf::Elf::new(reader).unwrap();
+                write_serial!("Size: 0x{:x}, Elf: {:#X?}\n", size, elf);
+
+                for program in elf.program_headers() {
+                    write_serial!("{:#X?}\n", program);
+                }
+            }
+        }
+    }
+
     loop {
         unsafe { asm!("hlt\n\t" :::: "volatile") }
     }
@@ -77,7 +102,7 @@ fn say_welcome() {
 
     start_melody(STARTUP_MELODY, false);
 
-    let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
+    //let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
     //peripherals::timer::sleep(duration as usize);
 }
 

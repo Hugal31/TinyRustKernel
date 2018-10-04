@@ -1,0 +1,11 @@
+[package]
+name = "elf"
+version = "0.1.0"
+authors = ["Hugo Laloge <hugo.laloge@epitech.eu>"]
+edition = "2018"
+
+[dependencies]
+"no_std_io" = { version = "0.1", path = "../no_std_io" }
+
+[features]
+"no_std" = ["no_std_io/no_std"]

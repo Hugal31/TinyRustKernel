@@ -13,6 +13,7 @@ assembly_object_files := $(patsubst src/arch/$(arch)/%.S, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
 
 ROMS	= \
+	  roms/a_test \
 	  roms/chichehunter \
 	  roms/chichepong \
 	  roms/chichevaders \

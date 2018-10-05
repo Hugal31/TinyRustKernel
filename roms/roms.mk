@@ -8,7 +8,7 @@ all: $(TARGET).rom
 
 $(TARGET): CPPFLAGS += -MMD -I ../../libs/libc/include -I ../../libs/libk/include
 $(TARGET): LDFLAGS += -Wl,-T../roms.lds
-$(TARGET): LDLIBS = -L ../../libs/libk -L ../../libs/libc -lk -lc
+$(TARGET): LDLIBS = -L ../../libs/libk -L ../../libs/libc -Wl,--start-group -lc -lk -Wl,--end-group
 $(TARGET): $(OBJS)
 
 clean:

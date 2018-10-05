@@ -49,10 +49,10 @@ lazy_static! {
     static ref IDT: [IDTEntry; 255] = {
         let mut idt = [IDTEntry(0); 255];
 
-        idt[0] = IDTEntry::new_interrupt_gate(isr_0, KERNEL_CODE_SEGMENT, DPL::Ring0);
-        idt[64] = IDTEntry::new_interrupt_gate(isr_64, KERNEL_CODE_SEGMENT, DPL::Ring0);
-        idt[65] = IDTEntry::new_interrupt_gate(isr_65, KERNEL_CODE_SEGMENT, DPL::Ring0);
-        idt[128] = IDTEntry::new_interrupt_gate(isr_128, KERNEL_CODE_SEGMENT, DPL::Ring3);
+        idt[0] = IDTEntry::new_interrupt_gate(isr_0, KERNEL_CODE_SEGMENT as u16, DPL::Ring0);
+        idt[64] = IDTEntry::new_interrupt_gate(isr_64, KERNEL_CODE_SEGMENT as u16, DPL::Ring0);
+        idt[65] = IDTEntry::new_interrupt_gate(isr_65, KERNEL_CODE_SEGMENT as u16, DPL::Ring0);
+        idt[128] = IDTEntry::new_interrupt_gate(isr_128, KERNEL_CODE_SEGMENT as u16, DPL::Ring3);
 
         idt
     };

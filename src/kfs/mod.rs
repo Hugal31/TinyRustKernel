@@ -73,7 +73,7 @@ impl<'a> Kfs<'a> {
     }
 
     /// Return the size readed from the inode
-    pub fn reader(&'a self, inode: &'a Inode) -> impl Read + Seek + 'a {
+    pub fn reader(&'a self, inode: &'a Inode) -> impl Read + Seek + Clone + 'a {
         DataBlockReader::new(inode.blocks(self))
     }
 }
@@ -250,7 +250,7 @@ impl DataBlock {
         }
 
         let to_copy = min(self.usage - initial_cursor, buffer.len());
-        buffer.copy_from_slice(&self.data[initial_cursor..initial_cursor + to_copy]);
+        buffer[..to_copy].copy_from_slice(&self.data[initial_cursor..initial_cursor + to_copy]);
         to_copy
     }
 

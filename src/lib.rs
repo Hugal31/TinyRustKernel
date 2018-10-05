@@ -53,6 +53,9 @@ const STARTUP_MELODY: &[Tone] = &[
     Tone::new(494, 500), // Mi 3
 ];
 
+const USERLAND_ADDR: usize = 0x10000;
+use elf::ElfProgramHeader;
+
 #[no_mangle]
 pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
@@ -63,27 +66,40 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     do_system_init_steps();
     say_welcome();
 
-    if let Some(executable) = infos.cmdline().and_then(|cmdline| {
+    let kmod = &infos.mods().unwrap()[0];
+    let executable = infos.cmdline().and_then(|cmdline| {
         if cmdline.starts_with('/') {
             Some(&cmdline[1..])
         } else {
             None
         }
-    }) {
-        if let Ok(fs) = init_file_system(&infos.mods().unwrap()[0]) {
-            if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
-                use no_std_io::Seek;
-                let mut reader = fs.reader(inode);
-                let size = reader.seek(no_std_io::SeekFrom::End(0)).unwrap();
-                reader.seek(no_std_io::SeekFrom::Start(0)).ok();
-                let mut elf = elf::Elf::new(reader).unwrap();
-                write_serial!("Size: 0x{:x}, Elf: {:#X?}\n", size, elf);
+    }).unwrap();
+    let fs = init_file_system(&kmod).unwrap();
 
-                for program in elf.program_headers() {
-                    write_serial!("{:#X?}\n", program);
-                }
-            }
+    if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
+        use no_std_io::{Read, Seek, SeekFrom};
+
+        let mut reader = fs.reader(inode);
+        let mut elf = elf::Elf::new(reader.clone()).unwrap();
+
+        for segment in elf.program_headers() {
+            reader.seek(SeekFrom::Start(segment.offset())).unwrap();
+            let memory = unsafe {
+                ::core::slice::from_raw_parts_mut(
+                    (USERLAND_ADDR + segment.paddr()) as *mut u8,
+                    segment.file_size())
+            };
+            reader.read(memory).unwrap();
         }
+
+        unsafe {
+            asm!("nop
+        jmp $0"
+                 :
+                 : "r" (USERLAND_ADDR + elf.entry_point())
+                 :
+                 : "intel")
+        };
     }
 
     loop {
@@ -150,5 +166,9 @@ fn panic(info: &PanicInfo) -> ! {
         write_serial!("panic occured");
         write_vga!("panic occured");
     }
-    loop {}
+    if let Some(s) = info.payload().downcast_ref::<&str>() {
+        write_serial!(", \"{}\"", s);
+        write_vga!(", \"{}\"", s);
+    }
+    abort();
 }

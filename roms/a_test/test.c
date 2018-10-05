@@ -26,5 +26,7 @@
 
 void entry(void)
 {
-  puts("Salut!");
+  puts("Salot!");
+  puts("Ça va ?");
+  for (;;) {}
 }

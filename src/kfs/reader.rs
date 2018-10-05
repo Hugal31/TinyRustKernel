@@ -4,6 +4,7 @@ use crate::*;
 
 use super::DataBlock;
 
+#[derive(Clone)]
 pub(super) struct DataBlockReader<'a, I>
 where
     I: Iterator<Item = &'a DataBlock> + Clone,
@@ -97,12 +98,11 @@ where
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if let Some(block) = self.current {
             // There is still some blocks to read
-            let size = block.read(buf, self.offset);
+            let size = block.read(buf, self.current_offset);
             self.offset += size;
             self.current_offset += size;
             // Check if we still have some data to read
             if size == buf.len() {
-                self.current_offset += size;
                 Ok(size)
             } else {
                 self.next_block();

@@ -45,7 +45,7 @@ where
     R: Read + Seek,
 {
     pub fn new(mut reader: R) -> Result<Self> {
-        let mut header = read_struct(&mut reader)
+        let header = read_struct(&mut reader)
             .map_err(|_| Error::NotAnELF)?;
 
         reader.seek(SeekFrom::Start(0)).ok();
@@ -59,6 +59,10 @@ where
 
     pub fn program_headers<'a>(&'a mut self) -> impl 'a + Iterator<Item = impl ElfProgramHeader> {
         iterators::ElfProgramHeaderIterator::<'a, R, Elf32ProgramHeader>::new(self)
+    }
+
+    pub fn entry_point(&self) -> usize {
+        self.header.entry as usize
     }
 
     fn validate(mut self) -> Result<Self> {
@@ -168,8 +172,33 @@ impl Elf32Header {
     }
 }
 
-pub trait ElfProgramHeader: ::core::fmt::Debug {
+const PT_LOAD: u32 = 1;
 
+const PF_X: u32 = 0b001;
+const PF_W: u32 = 0b010;
+const PF_R: u32 = 0b100;
+
+pub trait ElfProgramHeader: ::core::fmt::Debug {
+    fn typ(&self) -> u32;
+    fn flags(&self) -> u32;
+    fn offset(&self) -> usize;
+    fn vaddr(&self) -> usize;
+    fn paddr(&self) -> usize;
+    fn file_size(&self) -> usize;
+    fn mem_size(&self) -> usize;
+    fn align(&self) -> usize;
+
+    fn is_load(&self) -> bool {
+        self.typ() & PT_LOAD != 0
+    }
+
+    fn is_data(&self) -> bool {
+        self.flags() == PF_X & PF_W & PF_R
+    }
+
+    fn is_text(&self) -> bool {
+        self.flags() == PF_X & PF_R
+    }
 }
 
 #[repr(C)]
@@ -186,7 +215,37 @@ pub struct Elf32ProgramHeader {
 }
 
 impl ElfProgramHeader for Elf32ProgramHeader {
+    fn typ(&self) -> u32 {
+        self.typ
+    }
 
+    fn flags(&self) -> u32 {
+        self.flags
+    }
+
+    fn offset(&self) -> usize {
+        self.offset as usize
+    }
+
+    fn vaddr(&self) -> usize {
+        self.vaddr as usize
+    }
+
+    fn paddr(&self) -> usize {
+        self.paddr as usize
+    }
+
+    fn file_size(&self) -> usize {
+        self.filesz as usize
+    }
+
+    fn mem_size(&self) -> usize {
+        self.memsz as usize
+    }
+
+    fn align(&self) -> usize {
+        self.align as usize
+    }
 }
 
 fn read_struct<'a, R, S>(reader: &mut R) -> Result<S>

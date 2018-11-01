@@ -2,8 +2,6 @@
 #![feature(asm)]
 #![feature(core_intrinsics)]
 #![feature(global_asm)]
-#![feature(min_const_fn)]
-#![feature(option_replace)]
 #![feature(naked_functions)]
 #![feature(const_transmute)]
 #![feature(lang_items)]

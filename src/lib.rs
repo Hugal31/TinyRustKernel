@@ -25,6 +25,7 @@ mod multiboot;
 mod logger;
 mod peripherals;
 mod startup;
+mod userland;
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
@@ -33,9 +34,6 @@ use self::peripherals::serial::SERIAL_PORT;
 
 // NOTE: Must use to expose
 pub use self::interrupts::isr_generic_handler;
-
-const USERLAND_ADDR: usize = 0x10000;
-use elf::ElfProgramHeader;
 
 #[no_mangle]
 pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
@@ -48,42 +46,13 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
 
     startup::startup();
 
-    let kmod = &infos.mods().unwrap()[0];
-    let executable = infos.cmdline().and_then(|cmdline| {
-        if cmdline.starts_with('/') {
-            Some(&cmdline[1..])
-        } else {
-            None
-        }
-    }).unwrap();
-    let fs = init_file_system(&kmod).unwrap();
-
-    if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
-        use no_std_io::{Read, Seek, SeekFrom};
-
-        let mut reader = fs.reader(inode);
-        let mut elf = elf::Elf::new(reader.clone()).unwrap();
-
-        for segment in elf.program_headers() {
-            reader.seek(SeekFrom::Start(segment.offset())).unwrap();
-            let memory = unsafe {
-                ::core::slice::from_raw_parts_mut(
-                    (USERLAND_ADDR + segment.paddr()) as *mut u8,
-                    segment.file_size())
-            };
-            reader.read(memory).unwrap();
-        }
-
-        unsafe {
-            asm!("nop
-        jmp $0"
-                 :
-                 : "r" (USERLAND_ADDR + elf.entry_point())
-                 :
-                 : "intel")
-        };
+    if let Some(module) = infos.mods().next() {
+        load_and_execute_module(infos, &module);
+    } else {
+        warn!("No module detected");
     }
 
+    info!("Shutdown");
     loop {
         unsafe { asm!("hlt\n\t" :::: "volatile") }
     }
@@ -91,6 +60,28 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
 
 fn init_file_system(m: &multiboot::MultibootMod) -> Result<kfs::Kfs, kfs::Error> {
     kfs::Kfs::new(m.mod_start, m.mod_end)
+}
+
+fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &multiboot::MultibootMod) {
+    // TODO Refactor
+    let executable = match infos.cmdline() {
+        Some(cmdline) if cmdline.starts_with('/') => &cmdline[1..],
+        Some(_) => {
+            warn!("The command line argument doesn't start with a '/'");
+            return;
+        },
+        None => {
+            warn!("No command line argument");
+            return;
+        }
+    };
+
+    let fs = init_file_system(&m).unwrap();
+
+    if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
+        let reader = fs.reader(inode);
+        userland::execute_file(reader);
+    };
 }
 
 fn abort() -> ! {

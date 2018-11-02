@@ -13,7 +13,10 @@ impl Log for SerialLogger {
     }
 
     fn log(&self, record: &Record) {
-        write_serial!("[{level:<5}] {args}\n", level = record.level(), args = record.args());
+        write_serial!("[{level:<5}] [{target}] {args}\n",
+                      level = record.level(),
+                      target = record.target(),
+                      args = record.args());
     }
 
     fn flush(&self) {

@@ -57,11 +57,11 @@ impl MultibootInfo {
     }
 
     /// Returns the addresses of the mods as u32
-    pub fn mods(&self) -> Option<&[MultibootMod]> {
+    pub fn mods(&self) -> impl Iterator<Item = &MultibootMod> {
         if self.flags.mods() {
-            Some(unsafe { slice::from_raw_parts(self.mods_addr, self.mods_count as usize) })
+            unsafe { slice::from_raw_parts(self.mods_addr, self.mods_count as usize) }.iter()
         } else {
-            None
+            [].iter()
         }
     }
 

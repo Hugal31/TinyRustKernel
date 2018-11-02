@@ -32,6 +32,7 @@ pub struct Kfs<'a> {
     superblock: &'a Superblock,
 }
 
+#[allow(dead_code)]
 impl<'a> Kfs<'a> {
     /// Reference to the superblock and end address
     pub fn new(start: u32, end: u32) -> Result<Self> {

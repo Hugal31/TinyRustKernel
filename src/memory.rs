@@ -17,7 +17,7 @@ pub const KERNEL_DATA_SEGMENT: usize = (size_of::<lgdt::GDTEntry>() * 2);
 //pub const USER_DATA_SEGMENT: usize = (size_of::<lgdt::GDTEntry>() * 4);
 const TSS_SEGMENT: usize = (size_of::<lgdt::GDTEntry>() * 5);
 
-pub fn init_memory() {
+pub fn segment() {
     load_gdt();
     set_protected_mode();
     init_segment_registers();

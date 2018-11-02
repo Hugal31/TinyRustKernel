@@ -10,8 +10,9 @@ crate-type = ["staticlib"]
 [dependencies]
 bitfield = "0.13"
 lazy_static = { version = "1", features = ["spin_no_std"] }
+log = { version = "0.4", features = [] }
 spin = "*"
-"volatile" = "0.2"
+volatile = "0.2"
 
 [dependencies.elf]
 path = "elf"

@@ -58,7 +58,7 @@ lazy_static! {
     };
 }
 
-pub fn init_interrupts() {
+pub fn init() {
     load_idt();
 
     PIC.lock().init();

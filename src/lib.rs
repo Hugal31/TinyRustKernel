@@ -5,6 +5,7 @@
 #![feature(naked_functions)]
 #![feature(const_transmute)]
 #![feature(lang_items)]
+#![feature(panic_info_message)]
 #![no_std]
 
 extern crate bitfield;
@@ -81,6 +82,8 @@ fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &multiboot::Mult
     if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
         let reader = fs.reader(inode);
         userland::execute_file(reader);
+    } else {
+        warn!("Executable \"{}\" not found in module.", executable);
     };
 }
 
@@ -113,6 +116,10 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         write_serial!("[ERROR] panic occured");
         write_vga!("[ERROR] panic occured");
+    }
+    if let Some(m) = info.message() {
+        write_serial!(", \"{}\"", m);
+        write_vga!(", \"{}\"", m);
     }
     if let Some(s) = info.payload().downcast_ref::<&str>() {
         write_serial!(", \"{}\"", s);

@@ -1,12 +1,33 @@
 isr:
+	// Save registers
 	pusha
-	pushl %esp
+	pushw %ds
+	pushw %es
+	pushw %fs
+	pushw %gs
+
+	//  Put correct value in ds, es, fs, and gs
+	movw %ss, %ax
+	movw %ax, %ds
+	movw %ax, %es
+	movw %ax, %fs
+	movw %ax, %gs
+
+	pushl %esp 		// Push the argument, wich is the pointer to the context
 	movl %esp, %ebp
 	call isr_generic_handler
 	movl %ebp, %esp
 	popl %esp
+
+	// Restore  registers
+	popw %ds
+	popw %es
+	popw %fs
+	popw %gs
 	popa
-	add $8, %esp
+
+	add $8, %esp		// Remove the isr and the error codes
+
 	iret
 
 	// TODO Try to use macro

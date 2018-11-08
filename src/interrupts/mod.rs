@@ -22,6 +22,10 @@ extern "C" {
 #[repr(C, packed)]
 #[derive(Clone, Copy, Debug)]
 pub struct InterruptContext {
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
     edi: u32,
     esi: u32,
     ebp: u32,

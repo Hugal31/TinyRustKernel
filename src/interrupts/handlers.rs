@@ -28,6 +28,7 @@ const SYSCALL_PLAYSOUND: u32 = 11;
 // TODO Check pointers come from userland, and copy them ?
 #[allow(safe_packed_borrows)]
 pub fn syscall_handler(context: &mut InterruptContext) {
+    trace!("Received syscall {} ({:X?})", context.eax, context);
     let ret = match context.eax {
         SYSCALL_WRITE => syscall_write(context.ebx as *const u8, context.ecx as usize),
         SYSCALL_GETTICK => syscall_gettick(),
@@ -37,12 +38,16 @@ pub fn syscall_handler(context: &mut InterruptContext) {
         _ => ::core::u32::MAX,
     };
 
+    trace!("Sycall returned {}", ret);
+
     context.eax = ret;
 }
 
 fn syscall_write(buffer: *const u8, size: usize) -> u32 {
     use crate::peripherals::serial::SERIAL_PORT;
     use crate::peripherals::vga::TEXT_WRITER;
+
+    trace!("write(0x{:X?}, {})", buffer, size);
 
     let mut serial = SERIAL_PORT.lock();
     let mut vga = TEXT_WRITER.lock();

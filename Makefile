@@ -56,7 +56,7 @@ build/arch/$(arch)/%.o: src/arch/$(arch)/%.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run: $(iso)
-	qemu-system-i386 -cdrom $(iso) -serial stdio -soundhw pcspk
+	qemu-system-i386 -cdrom $(iso) -serial stdio -soundhw pcspk # -d int,cpu_reset -no-reboot
 
 run-debug: $(iso)
 	qemu-system-i386 -cdrom $(iso) -serial stdio -s -S

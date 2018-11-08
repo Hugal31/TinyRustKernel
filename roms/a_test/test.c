@@ -1,32 +1,54 @@
-/*
-* Copyright (c) LSE
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*
-* THIS SOFTWARE IS PROVIDED BY LSE AS IS AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL LSE BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+#include <kstd.h>
+#include <stdio.h>
 
-#include<stdio.h>
+void test_gettick(void)
+{
+  const unsigned long start = gettick();
+  unsigned long last_print = 0;
+  unsigned long delay = 0;
+  while (delay < 4000) {
+    if (delay - last_print >= 1000)
+      {
+	printf("%lu...\n", delay / 1000);
+	last_print = delay;
+      }
+    delay = gettick() - start;
+  }
+}
+
+void test_keyboard(void)
+{
+  puts("Try the arrow keys, or press ESC...");
+  while (1) {
+    switch (getkey())
+      {
+      case KEY_UP:
+	puts("Up!");
+	break;
+      case KEY_LEFT:
+	puts("Left!");
+	break;
+      case KEY_RIGHT:
+	puts("Right!");
+	break;
+      case KEY_DOWN:
+	puts("Down!");
+	break;
+      case KEY_ESC:
+	return;
+      default:
+	break;
+      }
+  }
+}
 
 void entry(void)
 {
-  puts("Salot!");
-  puts("Ça va ?");
+  puts("Start");
+
+  test_keyboard();
+  test_gettick();
+
+  puts("Stop");
   for (;;) {}
 }

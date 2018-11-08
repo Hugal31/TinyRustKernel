@@ -91,7 +91,7 @@ impl Modifiers {
 static MODIFIERS: Mutex<Modifiers> = Mutex::new(Modifiers::new());
 
 /// Circular buffer for scan codes
-struct ScanBuffer {
+pub struct ScanBuffer {
     read: u8,
     write: u8,
     overlap: bool,
@@ -142,19 +142,9 @@ impl ScanBuffer {
     }
 }
 
-static BUFFER: Mutex<ScanBuffer> = Mutex::new(ScanBuffer::new());
+pub static BUFFER: Mutex<ScanBuffer> = Mutex::new(ScanBuffer::new());
 
 pub fn receive_scan(scan: u8) {
-    use crate::*; // For write_vga;
-
-    let mut modifiers = MODIFIERS.lock();
-    modifiers.receive_scan(scan);
-    let is_pressed = (scan & 0b10000000) == 0;
-    if is_pressed {
-        if let Some(key) = Key::from_scan(scan, modifiers.shift()) {
-            if let Some(c) = key.into_char() {
-                write_vga!("{}", c);
-            }
-        }
-    }
+    let mut buffer = BUFFER.lock();
+    buffer.write(scan);
 }

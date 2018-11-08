@@ -22,6 +22,7 @@ pub fn keyboard_handler(_context: &mut InterruptContext) {
 
 // TODO Use bingen ?
 const SYSCALL_WRITE: u32 = 1;
+const SYSCALL_GETKEY: u32 = 3;
 const SYSCALL_GETTICK: u32 = 4;
 const SYSCALL_PLAYSOUND: u32 = 11;
 
@@ -31,6 +32,7 @@ pub fn syscall_handler(context: &mut InterruptContext) {
     trace!("Received syscall {} ({:X?})", context.eax, context);
     let ret = match context.eax {
         SYSCALL_WRITE => syscall_write(context.ebx as *const u8, context.ecx as usize),
+        SYSCALL_GETKEY => syscall_getkey(),
         SYSCALL_GETTICK => syscall_gettick(),
         SYSCALL_PLAYSOUND => {
             syscall_playsound(context.ebx as *const speaker::Tone, context.ecx != 0)
@@ -60,6 +62,15 @@ fn syscall_write(buffer: *const u8, size: usize) -> u32 {
     }
 
     c as u32
+}
+
+fn syscall_getkey() -> u32 {
+    use crate::peripherals::keyboard::BUFFER;
+
+    let mut buffer = BUFFER.lock();
+    buffer.read()
+        .map(|scan| scan as u32)
+        .unwrap_or(::core::u32::MAX)
 }
 
 fn syscall_gettick() -> u32 {

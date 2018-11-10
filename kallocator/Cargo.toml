@@ -1,0 +1,7 @@
+[package]
+name = "kallocator"
+version = "0.1.0"
+authors = ["Hugo Laloge <hugo.laloge@epitech.eu>"]
+edition = "2018"
+
+[dependencies]

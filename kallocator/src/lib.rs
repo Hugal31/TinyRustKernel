@@ -1,4 +1,5 @@
 #![feature(allocator_api)]
+#![feature(align_offset)]
 #![feature(ptr_offset_from)]
 #![cfg_attr(not(test), no_std)]
 
@@ -43,9 +44,8 @@ impl KAllocator {
         )
     }
 
-    fn block_for(&self, layout: Layout) -> Option<&'static mut Block> {
-        // TODO Handle align
-        self.blocks().find(|b| !b.used && b.size() >= layout.size())
+    fn blocks_for(&self, layout: Layout) -> impl Iterator<Item = &'static mut Block> {
+        self.blocks().filter(move |b| !b.used && b.size() >= layout.size())
     }
 
     fn previous_block(&self, block: &Block) -> Option<&'static mut Block> {
@@ -59,7 +59,28 @@ impl KAllocator {
 
 unsafe impl Alloc for KAllocator {
     unsafe fn alloc(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocErr> {
-        let block = self.block_for(layout).ok_or(AllocErr)?;
+        let mut blocks_iterator = self.blocks_for(layout);
+        let mut block = blocks_iterator.next().ok_or(AllocErr)?;
+
+        // Handle alignment
+        let mut align_offset = block.data_address().align_offset(layout.align());
+        while align_offset != 0 {
+            // If there is enough space, create a free block at the beginning and use the rest,
+            // which is aligned
+            if block.size() >= align_offset + layout.align() - size_of::<Block>() + layout.size() {
+                let previous_size = block.size();
+                block.set_size(align_offset + layout.align() - size_of::<Block>());
+                block = block.next_block_mut();
+                block.set_size(previous_size - (align_offset + layout.align() - size_of::<Block>()));
+                debug_assert_eq!(0, block.data_address().align_offset(layout.align()));
+                break;
+            } else {
+                // Else, search another block.
+                block = blocks_iterator.next().ok_or(AllocErr)?;
+                align_offset = block.data_address().align_offset(layout.align());
+            }
+        }
+
         block.used = true;
 
         // Split if possible
@@ -321,6 +342,19 @@ mod tests {
                 .alloc(Layout::from_size_align(254, 1).unwrap())
                 .expect("Should allocate");
             assert_eq!(ptr2, ptr4);
+        }
+    }
+
+    #[test]
+    fn test_align() {
+        let mut memory = [0u8; 1024];
+
+        unsafe {
+            let mut allocator = new_allocator(&mut memory);
+
+            let layout = Layout::from_size_align(256, 256).unwrap();
+            let ptr = allocator.alloc(layout).expect("Should allocate");
+            assert_eq!(0, ptr.as_ptr().align_offset(256));
         }
     }
 }

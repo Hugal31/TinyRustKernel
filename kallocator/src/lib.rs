@@ -3,12 +3,16 @@
 #![feature(ptr_offset_from)]
 #![cfg_attr(not(test), no_std)]
 
-use core::alloc::{Alloc, AllocErr, Layout};
+extern crate spin;
+
+use core::alloc::{Alloc, AllocErr, GlobalAlloc, Layout};
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::{size_of, transmute};
 use core::num::NonZeroUsize;
-use core::ptr::NonNull;
+use core::ptr::{self, NonNull};
+
+use spin::Mutex;
 
 pub struct KAllocator {
     /// Start of the usable memory
@@ -17,7 +21,16 @@ pub struct KAllocator {
     memory_end: *mut u8,
 }
 
+unsafe impl Send for KAllocator {}
+
 impl KAllocator {
+    pub const fn invalid() -> KAllocator {
+        KAllocator {
+            memory_start: ptr::null_mut(),
+            memory_end: ptr::null_mut(),
+        }
+    }
+
     pub unsafe fn new(memory_start: NonNull<u8>, memory_end: NonNull<u8>) -> KAllocator {
         let memory_start = memory_start.as_ptr();
         let memory_end = memory_end.as_ptr();
@@ -114,6 +127,32 @@ unsafe impl Alloc for KAllocator {
                 previous_block.set_size(previous_block.size() + block.size_with_header());
             }
         }
+    }
+}
+
+pub struct GlobalKalloc {
+    allocator: Mutex<KAllocator>,
+}
+
+impl GlobalKalloc {
+    pub const fn invalid() -> GlobalKalloc {
+        GlobalKalloc {
+            allocator: Mutex::new(KAllocator::invalid())
+        }
+    }
+
+    pub fn set_memory_bounds(&self, memory_start: NonNull<u8>, memory_end: NonNull<u8>) {
+        *self.allocator.lock() = unsafe { KAllocator::new(memory_start, memory_end) }
+    }
+}
+
+unsafe impl GlobalAlloc for GlobalKalloc {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.allocator.lock().alloc(layout).expect("Should allocate").as_ptr()
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.allocator.lock().dealloc(NonNull::new(ptr).unwrap(), layout)
     }
 }
 
@@ -248,6 +287,16 @@ mod tests {
                 NonNull::new_unchecked(&mut memory[0] as *mut u8),
                 NonNull::new_unchecked((&mut memory[0] as *mut u8).add(memory.len())),
             )
+        }
+    }
+
+
+    #[test]
+    fn test_invalid() {
+        unsafe {
+            let mut allocator = KAllocator::invalid();
+
+            assert!(allocator.alloc(Layout::new::<u32>()).is_err());
         }
     }
 

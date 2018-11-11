@@ -73,7 +73,6 @@ impl<'a> Kfs<'a> {
         InodeIterator::new(self)
     }
 
-    /// Return the size readed from the inode
     pub fn reader(&'a self, inode: &'a Inode) -> impl Read + Seek + Clone + 'a {
         DataBlockReader::new(inode.blocks(self))
     }
@@ -184,11 +183,11 @@ impl Inode {
     }
 
     fn direct_blocks_idx(&self) -> &[usize] {
-        unsafe { slice::from_raw_parts(&self.d_blks[0], self.d_blk_cnt) }
+        &self.d_blks[..self.d_blk_cnt]
     }
 
     fn indirect_blocks_idx(&self) -> &[usize] {
-        unsafe { slice::from_raw_parts(&self.i_blks[0], self.i_blk_cnt) }
+        &self.i_blks[..self.i_blk_cnt]
     }
 
     fn blocks<'a>(&'a self, kfs: &'a Kfs) -> DataBlockIterator {

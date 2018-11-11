@@ -25,6 +25,6 @@ impl Log for SerialLogger {
 
 pub fn init() {
     log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(LevelFilter::Trace))
+        .map(|()| log::set_max_level(LevelFilter::Debug))
         .expect("Initialize logger");
 }

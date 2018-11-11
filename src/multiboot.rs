@@ -4,6 +4,7 @@ use core::marker::PhantomData;
 use core::slice;
 //use core::ffi::CStr;
 use bitfield::*;
+use elf::{ElfSectionHeader, Elf32SectionHeader};
 
 pub const MULTIBOOT_BOOT_MAGIC: u32 = 0x2BADB002;
 
@@ -27,11 +28,10 @@ pub struct MultibootInfo {
     cmdline: *const u8,
     mods_count: u32,
     mods_addr: *const MultibootMod,
-    // TODO
-    _elf_1: u32,
-    _elf_2: u32,
-    _elf_3: u32,
-    _elf_4: u32,
+    elf_num: u32,
+    elf_size: u32,
+    elf_addr: u32,
+    _elf_shndx: u32,
     mmap_length: u32,
     mmap_addr: *const MultibootMmap,
 }
@@ -71,6 +71,20 @@ impl MultibootInfo {
         } else {
             MultibootMmapIterator::new(::core::ptr::null(), 0)
         }
+    }
+
+    pub fn elf_sections(&self) -> Result<impl Iterator<Item = &impl ElfSectionHeader>, ()> {
+        if self.elf_size as usize != size_of::<Elf32SectionHeader>() {
+            return Err(());
+        }
+
+        let sections = unsafe {
+            slice::from_raw_parts(self.elf_addr as *const Elf32SectionHeader,
+                                  self.elf_num as usize
+            )
+        };
+
+        Ok(sections.iter())
     }
 }
 

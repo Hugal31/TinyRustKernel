@@ -11,6 +11,7 @@ crate-type = ["staticlib"]
 bitfield = "0.13"
 lazy_static = { version = "1", features = ["spin_no_std"] }
 log = { version = "0.4", features = [] }
+rlibc = "1.0"
 spin = "*"
 volatile = "0.2"
 
@@ -23,6 +24,10 @@ features = ["no_std"]
 path = "i386"
 version = "0.1"
 features = ["no_std"]
+
+[dependencies.kallocator]
+path = "kallocator"
+version = "0.1"
 
 [dependencies.no_std_io]
 version = "0.1"

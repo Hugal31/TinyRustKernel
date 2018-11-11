@@ -1,3 +1,6 @@
+#![feature(align_offset)]
+#![feature(alloc)]
+#![feature(alloc_error_handler)]
 #![feature(abi_x86_interrupt)]
 #![feature(asm)]
 #![feature(core_intrinsics)]
@@ -8,12 +11,15 @@
 #![feature(panic_info_message)]
 #![no_std]
 
+extern crate alloc;
 extern crate bitfield;
 extern crate elf;
+extern crate kallocator;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate no_std_io;
+extern crate rlibc;
 extern crate spin;
 extern crate vga;
 extern crate volatile; // TODO Move
@@ -28,6 +34,7 @@ mod peripherals;
 mod startup;
 mod userland;
 
+use crate::alloc::boxed::Box;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
@@ -35,6 +42,9 @@ use self::peripherals::serial::SERIAL_PORT;
 
 // NOTE: Must use to expose
 pub use self::interrupts::isr_generic_handler;
+
+#[global_allocator]
+static ALLOCATOR: kallocator::GlobalKalloc = kallocator::GlobalKalloc::invalid();
 
 #[no_mangle]
 pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
@@ -45,7 +55,9 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
         abort();
     }
 
-    startup::startup();
+    startup::startup(infos);
+
+    Box::new(0u32);
 
     if let Some(module) = infos.mods().next() {
         load_and_execute_module(infos, &module);
@@ -94,6 +106,12 @@ fn abort() -> ! {
 }
 
 // Languages elements
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: ::core::alloc::Layout) -> ! {
+    error!("Error while allocationg {:#?}", layout);
+    abort();
+}
 
 #[lang = "eh_personality"]
 extern "C" fn eh_personality() {}

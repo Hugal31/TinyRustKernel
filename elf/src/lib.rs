@@ -105,7 +105,7 @@ impl<R> fmt::Debug for Elf<R>
 
 #[repr(C)]
 #[derive(Debug)]
-struct Elf32Header {
+pub struct Elf32Header {
     ident: [u8; EI_NIDENT],
     typ: u16,
     machine: u16,
@@ -245,6 +245,35 @@ impl ElfProgramHeader for Elf32ProgramHeader {
 
     fn align(&self) -> usize {
         self.align as usize
+    }
+}
+
+pub trait ElfSectionHeader {
+    fn addr(&self) -> usize;
+    fn size(&self) -> usize;
+}
+
+#[repr(C)]
+pub struct Elf32SectionHeader {
+    name: u32,
+    typ: u32,
+    flags: u32,
+    addr: u32,
+    offset: u32,
+    size: u32,
+    link: u32,
+    info: u32,
+    addralign: u32,
+    entsize: u32,
+}
+
+impl ElfSectionHeader for Elf32SectionHeader {
+    fn addr(&self) -> usize {
+       self.addr as usize
+    }
+
+    fn size(&self) -> usize {
+        self.size as usize
     }
 }
 

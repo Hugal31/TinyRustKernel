@@ -1,3 +1,7 @@
+mod process;
+
+pub use self::process::*;
+
 use elf::{Elf, ElfProgramHeader};
 use no_std_io::{Read, Seek, SeekFrom};
 

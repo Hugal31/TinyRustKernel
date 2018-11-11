@@ -34,7 +34,6 @@ mod peripherals;
 mod startup;
 mod userland;
 
-use crate::alloc::boxed::Box;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
@@ -56,8 +55,6 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     }
 
     startup::startup(infos);
-
-    Box::new(0u32);
 
     if let Some(module) = infos.mods().next() {
         load_and_execute_module(infos, &module);

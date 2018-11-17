@@ -21,7 +21,8 @@ ROMS	= \
 	  roms/skate \
 	  roms/yakanoid \
 
-SUBDIRS =	libs/libc \
+SUBDIRS =	$(ROMS) \
+		libs/libc \
 		libs/libk \
 		tools/mkkfs
 

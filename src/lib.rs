@@ -27,9 +27,9 @@ extern crate volatile; // TODO Move
 mod arch;
 mod interrupts;
 mod kfs;
+mod logger;
 mod memory;
 mod multiboot;
-mod logger;
 mod peripherals;
 mod startup;
 mod userland;
@@ -79,7 +79,7 @@ fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &multiboot::Mult
         Some(_) => {
             warn!("The command line argument doesn't start with a '/'");
             return;
-        },
+        }
         None => {
             warn!("No command line argument");
             return;

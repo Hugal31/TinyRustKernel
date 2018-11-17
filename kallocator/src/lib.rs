@@ -58,7 +58,8 @@ impl KAllocator {
     }
 
     fn blocks_for(&self, layout: Layout) -> impl Iterator<Item = &'static mut Block> {
-        self.blocks().filter(move |b| !b.used && b.size() >= layout.size())
+        self.blocks()
+            .filter(move |b| !b.used && b.size() >= layout.size())
     }
 
     fn previous_block(&self, block: &Block) -> Option<&'static mut Block> {
@@ -84,7 +85,8 @@ unsafe impl Alloc for KAllocator {
                 let previous_size = block.size();
                 block.set_size(align_offset + layout.align() - size_of::<Block>());
                 block = block.next_block_mut();
-                block.set_size(previous_size - (align_offset + layout.align() - size_of::<Block>()));
+                block
+                    .set_size(previous_size - (align_offset + layout.align() - size_of::<Block>()));
                 debug_assert_eq!(0, block.data_address().align_offset(layout.align()));
                 break;
             } else {
@@ -137,7 +139,7 @@ pub struct GlobalKalloc {
 impl GlobalKalloc {
     pub const fn invalid() -> GlobalKalloc {
         GlobalKalloc {
-            allocator: Mutex::new(KAllocator::invalid())
+            allocator: Mutex::new(KAllocator::invalid()),
         }
     }
 
@@ -148,11 +150,17 @@ impl GlobalKalloc {
 
 unsafe impl GlobalAlloc for GlobalKalloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.allocator.lock().alloc(layout).expect("Should allocate").as_ptr()
+        self.allocator
+            .lock()
+            .alloc(layout)
+            .expect("Should allocate")
+            .as_ptr()
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.allocator.lock().dealloc(NonNull::new(ptr).unwrap(), layout)
+        self.allocator
+            .lock()
+            .dealloc(NonNull::new(ptr).unwrap(), layout)
     }
 }
 
@@ -289,7 +297,6 @@ mod tests {
             )
         }
     }
-
 
     #[test]
     fn test_invalid() {

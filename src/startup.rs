@@ -4,12 +4,12 @@ use core::ptr::NonNull;
 
 use elf::ElfSectionHeader;
 
-use crate::ALLOCATOR;
 use crate::interrupts;
 use crate::memory;
 use crate::multiboot;
 use crate::peripherals::speaker::{start_melody, Tone};
 use crate::peripherals::vga::{ScreenChar, TEXT_WRITER};
+use crate::ALLOCATOR;
 
 static SPLASH_SCREEN: &[ScreenChar; 2000] = unsafe {
     transmute(include_bytes!(concat!(
@@ -35,18 +35,22 @@ pub fn startup(infos: &multiboot::MultibootInfo) {
     interrupts::init();
     info!("Initialize interrupts DONE!");
 
-    let mut min_memory_addr = infos.mmap()
+    let mut min_memory_addr = infos
+        .mmap()
         .filter(|m| m.is_available())
         .map(|m| m.base_addr as usize)
         .min()
         .expect("Should have at least one usable memory section");
-    let max_memory_addr = infos.mmap()
+    let max_memory_addr = infos
+        .mmap()
         .filter(|m| m.is_available())
         .map(|m| (m.base_addr + m.length) as usize)
         .max()
         .expect("Should have at least one usable memory section");
 
-    let kernel_end = infos.elf_sections().expect("Elf sections should be readable")
+    let kernel_end = infos
+        .elf_sections()
+        .expect("Elf sections should be readable")
         .map(|s| s.addr() + s.size())
         .max()
         .expect("There should be at least one elf section");
@@ -58,9 +62,14 @@ pub fn startup(infos: &multiboot::MultibootInfo) {
 
     min_memory_addr = unsafe { min_memory_addr.add(min_memory_addr.align_offset(8)) };
 
-    debug!("Usable memory: [0x{:X?} - 0x{:X?}]", min_memory_addr, max_memory_addr);
-    ALLOCATOR.set_memory_bounds(NonNull::new(min_memory_addr).unwrap(),
-                                NonNull::new(max_memory_addr).unwrap());
+    debug!(
+        "Usable memory: [0x{:X?} - 0x{:X?}]",
+        min_memory_addr, max_memory_addr
+    );
+    ALLOCATOR.set_memory_bounds(
+        NonNull::new(min_memory_addr).unwrap(),
+        NonNull::new(max_memory_addr).unwrap(),
+    );
 
     say_welcome();
 }

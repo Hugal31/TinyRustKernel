@@ -68,7 +68,8 @@ fn syscall_getkey() -> u32 {
     use crate::peripherals::keyboard::BUFFER;
 
     let mut buffer = BUFFER.lock();
-    buffer.read()
+    buffer
+        .read()
         .map(|scan| scan as u32)
         .unwrap_or(::core::u32::MAX)
 }

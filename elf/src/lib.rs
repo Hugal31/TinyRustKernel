@@ -45,16 +45,11 @@ where
     R: Read + Seek,
 {
     pub fn new(mut reader: R) -> Result<Self> {
-        let header = read_struct(&mut reader)
-            .map_err(|_| Error::NotAnELF)?;
+        let header = read_struct(&mut reader).map_err(|_| Error::NotAnELF)?;
 
         reader.seek(SeekFrom::Start(0)).ok();
 
-        Elf {
-            reader,
-            header,
-        }
-        .validate()
+        Elf { reader, header }.validate()
     }
 
     pub fn program_headers<'a>(&'a mut self) -> impl 'a + Iterator<Item = impl ElfProgramHeader> {
@@ -66,8 +61,7 @@ where
     }
 
     fn validate(mut self) -> Result<Self> {
-        self.len()
-            .and_then(|size| self.header.validate(size))?;
+        self.len().and_then(|size| self.header.validate(size))?;
 
         Ok(self)
     }
@@ -96,8 +90,9 @@ where
 }
 
 impl<R> fmt::Debug for Elf<R>
-    where R: Read + Seek {
-
+where
+    R: Read + Seek,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.header.fmt(f)
     }
@@ -269,7 +264,7 @@ pub struct Elf32SectionHeader {
 
 impl ElfSectionHeader for Elf32SectionHeader {
     fn addr(&self) -> usize {
-       self.addr as usize
+        self.addr as usize
     }
 
     fn size(&self) -> usize {
@@ -278,14 +273,13 @@ impl ElfSectionHeader for Elf32SectionHeader {
 }
 
 fn read_struct<'a, R, S>(reader: &mut R) -> Result<S>
-    where R: Read
+where
+    R: Read,
 {
     let mut strct: S = unsafe { uninitialized() };
 
     reader
-        .read(unsafe {
-            slice::from_raw_parts_mut(transmute(&mut strct as *mut S), size_of::<S>())
-        })
+        .read(unsafe { slice::from_raw_parts_mut(transmute(&mut strct as *mut S), size_of::<S>()) })
         .map_err(|io| Error::Io(io))
         .and_then(|size| {
             if size == size_of::<S>() {

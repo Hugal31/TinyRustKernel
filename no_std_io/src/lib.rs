@@ -16,5 +16,5 @@ pub trait Seek {
 pub enum SeekFrom {
     Start(usize),
     Current(isize),
-    End(isize)
+    End(isize),
 }

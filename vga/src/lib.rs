@@ -103,8 +103,7 @@ pub unsafe fn set_palette(palette: &[u32]) {
 
 pub fn get_framebuffer() -> Option<NonNull<u8>> {
     unsafe { Port::new(VGA_GC_INDEX).write(6) };
-    let mmap_select = (unsafe { Port::new(VGA_GC_DATA).read() }
-                       >> 2) & 0b11;
+    let mmap_select = (unsafe { Port::new(VGA_GC_DATA).read() } >> 2) & 0b11;
     NonNull::new(match mmap_select {
         0 | 1 => 0xA0000,
         2 => 0xB0000,

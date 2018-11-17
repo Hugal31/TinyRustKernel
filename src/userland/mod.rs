@@ -7,13 +7,13 @@ use core::alloc::{GlobalAlloc, Layout};
 use elf::{Elf, ElfProgramHeader};
 use no_std_io::{Read, Seek, SeekFrom};
 
+use crate::memory::{DPL, USER_DATA_SEGMENT};
 use crate::ALLOCATOR;
-use crate::memory::{USER_DATA_SEGMENT, DPL};
 
 pub fn execute_file<R>(reader: R)
 where
-    R: Read + Seek + Clone {
-
+    R: Read + Seek + Clone,
+{
     let (entry_point, base_address) = {
         let mut elf = Elf::new(reader.clone()).unwrap();
         let base_address = load_into_memory(&mut elf, reader);
@@ -50,18 +50,22 @@ where
 
 fn load_into_memory<R>(elf: &mut Elf<R>, mut reader: R) -> *mut u8
 where
-    R: Read + Seek {
-
-    let max_align = elf.program_headers().map(|h| h.align())
+    R: Read + Seek,
+{
+    let max_align = elf
+        .program_headers()
+        .map(|h| h.align())
         .max()
         .expect("There should be at least one section");
-    let end_addr = elf.program_headers().map(|h| h.vaddr() + h.mem_size())
+    let end_addr = elf
+        .program_headers()
+        .map(|h| h.vaddr() + h.mem_size())
         .max()
         .expect("There should be at least one section");
 
     let base_address = unsafe {
-        ALLOCATOR.alloc(Layout::from_size_align(end_addr, max_align)
-                        .expect("Invalid userland layout"))
+        ALLOCATOR
+            .alloc(Layout::from_size_align(end_addr, max_align).expect("Invalid userland layout"))
     };
 
     for segment in elf.program_headers() {
@@ -69,7 +73,8 @@ where
         let memory = unsafe {
             ::core::slice::from_raw_parts_mut(
                 base_address.add(segment.vaddr()),
-                segment.file_size())
+                segment.file_size(),
+            )
         };
         reader.read(memory).unwrap();
     }

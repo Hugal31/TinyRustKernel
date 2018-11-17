@@ -1,5 +1,5 @@
-use spin::Mutex;
 use no_std_io::Read;
+use spin::Mutex;
 
 pub static USER_PROCESS: Mutex<Process> = Mutex::new(Process::new());
 

@@ -43,7 +43,11 @@ pub fn segment() {
 }
 
 fn load_segments(code_segment: usize, data_segment: usize) {
-    trace!("Load code segment {} and data segment {}", code_segment, data_segment);
+    trace!(
+        "Load code segment {} and data segment {}",
+        code_segment,
+        data_segment
+    );
 
     unsafe {
         // TODO Refactor, move architecture-dependent code

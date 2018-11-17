@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use core::slice;
 //use core::ffi::CStr;
 use bitfield::*;
-use elf::{ElfSectionHeader, Elf32SectionHeader};
+use elf::{Elf32SectionHeader, ElfSectionHeader};
 
 pub const MULTIBOOT_BOOT_MAGIC: u32 = 0x2BADB002;
 
@@ -79,8 +79,9 @@ impl MultibootInfo {
         }
 
         let sections = unsafe {
-            slice::from_raw_parts(self.elf_addr as *const Elf32SectionHeader,
-                                  self.elf_num as usize
+            slice::from_raw_parts(
+                self.elf_addr as *const Elf32SectionHeader,
+                self.elf_num as usize,
             )
         };
 

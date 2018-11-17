@@ -125,6 +125,7 @@ where
                 self.go_to_end();
                 self.seek_at((self.offset as isize + offset) as usize)
             }
-        }.map(|()| self.offset)
+        }
+        .map(|()| self.offset)
     }
 }

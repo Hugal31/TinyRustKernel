@@ -33,8 +33,8 @@ bitfield! {
 pub struct TSSEntry {
     /// The previous TSS
     pub prev_tss: u32,
-    pub esp0: u32,       // The stack pointer to load when we change to kernel mode.
-    pub ss0: u32,        // The stack segment to load when we change to kernel mode.
+    pub esp0: u32, // The stack pointer to load when we change to kernel mode.
+    pub ss0: u32,  // The stack segment to load when we change to kernel mode.
     pub esp1: u32,
     pub ss1: u32,
     pub esp2: u32,
@@ -123,7 +123,7 @@ impl GDTEntry {
 
     pub const fn new_tss_segment(base: u32) -> GDTEntry {
         GDTEntry(
-             size_of::<TSSEntry>() as u64 & 0xFFFF // Limit
+            size_of::<TSSEntry>() as u64 & 0xFFFF // Limit
                 | (base as u64 & 0xFFFFFF) << 16        // Begin base, 24 bits
                 | 0x9 << 40 // Type
                 | 0x1 << 47, // Present

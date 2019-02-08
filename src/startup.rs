@@ -1,4 +1,4 @@
-use core::cmp::{max, min};
+use core::cmp::max;
 use core::intrinsics::transmute;
 use core::ptr::NonNull;
 

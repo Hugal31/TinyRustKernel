@@ -42,10 +42,39 @@ void test_keyboard(void)
   }
 }
 
+void test_filesystem(void)
+{
+    int fd;
+    char buffer[1024];
+    ssize_t readed;
+
+    printf("Try to open a file... ");
+    fd = open("text.txt", O_RDONLY);
+    if (fd < 0)
+    {
+        puts("Failed...");
+        return;
+    }
+
+    printf("Success ! fd is %d\nTry to read... ", fd);
+
+    readed = read(fd, buffer, 1024 - 1);
+    buffer[readed] = '\0';
+    printf("Success ! Read \"%s\", len is %ld\n", buffer, readed);
+
+    printf("Seek at the second character... %ld", seek(fd, 1, SEEK_SET));
+    readed = read(fd, buffer, 1024 - 1);
+    buffer[readed] = '\0';
+    printf(": \"%s\"\n", buffer);
+
+    printf("Close returned %d\n", close(fd));
+}
+
 void entry(void)
 {
   puts("Start");
 
+  test_filesystem();
   test_keyboard();
   test_gettick();
 

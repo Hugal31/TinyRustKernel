@@ -7,7 +7,6 @@ use core::alloc::{GlobalAlloc, Layout};
 use elf::{Elf, ElfProgramHeader};
 use no_std_io::{Read, Seek, SeekFrom};
 
-use crate::memory::{DPL, USER_DATA_SEGMENT};
 use crate::ALLOCATOR;
 
 pub fn execute_file<R>(reader: R)

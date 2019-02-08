@@ -25,6 +25,7 @@
 TARGET	  = test
 OBJS	  = test.o
 ROM_TITLE = "test"
-ROM_FILES = $(TARGET)
+ROM_FILES = $(TARGET) \
+	    text.txt
 
 include ../roms.mk

@@ -32,6 +32,7 @@ mod memory;
 mod multiboot;
 mod peripherals;
 mod startup;
+mod strings;
 mod userland;
 
 use core::fmt::Write;
@@ -46,9 +47,10 @@ pub use self::interrupts::isr_generic_handler;
 static ALLOCATOR: kallocator::GlobalKalloc = kallocator::GlobalKalloc::invalid();
 
 #[no_mangle]
-pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
+pub extern "C" fn k_main(magic: u32, infos: &'static multiboot::MultibootInfo) -> ! {
     logger::init();
 
+    // Check if the multiboot magic is right
     if magic != multiboot::MULTIBOOT_BOOT_MAGIC {
         error!("Wrong multiboot magic\n");
         abort();
@@ -56,6 +58,7 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
 
     startup::startup(infos);
 
+    // Load the first module and execute it
     if let Some(module) = infos.mods().next() {
         load_and_execute_module(infos, &module);
     } else {
@@ -68,12 +71,9 @@ pub extern "C" fn k_main(magic: u32, infos: &multiboot::MultibootInfo) -> ! {
     }
 }
 
-fn init_file_system(m: &multiboot::MultibootMod) -> Result<kfs::Kfs, kfs::Error> {
-    kfs::Kfs::new(m.mod_start, m.mod_end)
-}
-
-fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &multiboot::MultibootMod) {
+fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &'static multiboot::MultibootMod) {
     // TODO Refactor
+    // Extract the executable name from the mutliboot command line.
     let executable = match infos.cmdline() {
         Some(cmdline) if cmdline.starts_with('/') => &cmdline[1..],
         Some(_) => {
@@ -86,7 +86,8 @@ fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &multiboot::Mult
         }
     };
 
-    let fs = init_file_system(&m).unwrap();
+    unsafe { kfs::init(m.mod_start, m.mod_end).expect("kfs::init failed") };
+    let fs = kfs::get_fs();
 
     if let Some(inode) = fs.inodes().find(|i| i.filename() == executable) {
         let reader = fs.reader(inode);

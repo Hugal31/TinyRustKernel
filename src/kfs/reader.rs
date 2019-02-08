@@ -129,3 +129,7 @@ where
         .map(|()| self.offset)
     }
 }
+
+impl<'a, I> super::FileHandle for DataBlockReader<'a, I>
+    where
+        I: Iterator<Item = &'a DataBlock> + Clone {}

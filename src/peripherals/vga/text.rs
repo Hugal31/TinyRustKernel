@@ -28,7 +28,7 @@ const CONS_SETY: u8 = 4;
 
 #[macro_export]
 macro_rules! write_vga {
-    ($($arg:tt)*) => { write!($crate::peripherals::vga::TEXT_WRITER.lock(), $($arg)*) }
+    ($($arg:tt)*) => { write!($crate::peripherals::vga::TEXT_WRITER.lock(), $($arg)*).expect("Write to VGA") }
 }
 
 #[allow(dead_code)]

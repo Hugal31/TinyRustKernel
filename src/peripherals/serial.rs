@@ -16,7 +16,7 @@ lazy_static! {
 
 #[macro_export]
 macro_rules! write_serial {
-    ($($arg:tt)*) => { write!(SERIAL_PORT.lock(), $($arg)*) }
+    ($($arg:tt)*) => { write!(SERIAL_PORT.lock(), $($arg)*).expect("Write to serial") }
 }
 
 pub struct SerialPort {

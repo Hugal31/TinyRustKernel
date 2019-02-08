@@ -6,6 +6,7 @@ use no_std_io::{Read, Seek};
 
 use core::intrinsics::transmute;
 use core::mem::{size_of, size_of_val};
+use core::ptr::NonNull;
 use core::slice;
 
 use self::reader::DataBlockReader;
@@ -27,15 +28,36 @@ pub enum Error {
 
 type Result<T> = ::core::result::Result<T, Error>;
 
+pub trait FileHandle: Read + Seek {}
+
+static mut KFS: Kfs = Kfs::invalid();
+
+pub unsafe fn init(start: u32, end: u32) -> Result<()> {
+    let result = KFS.init(start, end);
+
+    info!("KFS loaded between 0x{:X} and 0x{:X} ({} bytes)", start, end, end - start);
+    result
+}
+
+pub fn get_fs() -> &'static Superblock {
+    unsafe { KFS.superblock() }
+}
+
 #[derive(Debug)]
-pub struct Kfs<'a> {
-    superblock: &'a Superblock,
+struct Kfs {
+    superblock: Option<NonNull<Superblock>>,
 }
 
 #[allow(dead_code)]
-impl<'a> Kfs<'a> {
+impl Kfs {
+    pub const fn invalid() -> Self {
+        Kfs {
+            superblock: None,
+        }
+    }
+
     /// Reference to the superblock and end address
-    pub fn new(start: u32, end: u32) -> Result<Self> {
+    fn init(&mut self, start: u32, end: u32) -> Result<()> {
         let mem_size = (end - start) as usize;
 
         if mem_size < size_of::<Superblock>() {
@@ -48,45 +70,35 @@ impl<'a> Kfs<'a> {
             return Err(Error::MemTooSmall);
         }
 
-        Kfs { superblock }.validate()
+        self.superblock = NonNull::new(unsafe { transmute(superblock as *const Superblock) } );
+
+        self.validate()
     }
 
-    fn validate(self) -> Result<Self> {
-        let result: Result<()> = self.inodes().map(|i| i.validate(&self)).collect();
-        result.map(|()| self)
-    }
-
-    fn blocks(&self) -> &[Block] {
+    fn superblock(&self) -> &'static Superblock {
         unsafe {
-            slice::from_raw_parts(
-                transmute(self.superblock as *const Superblock),
-                self.superblock.blk_cnt,
-            )
+            &*self.superblock
+                .expect("KFS was not initialized")
+                .as_ptr()
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.superblock.name()
-    }
+    fn validate(&self) -> Result<()> {
+        self.superblock().validate()?;
 
-    pub fn inodes(&self) -> impl Iterator<Item = &Inode> {
-        InodeIterator::new(self)
-    }
-
-    pub fn reader(&'a self, inode: &'a Inode) -> impl Read + Seek + Clone + 'a {
-        DataBlockReader::new(inode.blocks(self))
+        Ok(())
     }
 }
 
 #[derive(Debug)]
 #[repr(C, packed)]
-struct Superblock {
+pub struct Superblock {
     magic: u32,
     name: [u8; NAME_SIZE],
-    pub ctime: isize,
-    pub blk_cnt: usize,
-    pub inode_cnt: usize,
-    pub inode_idx: usize,
+    ctime: isize,
+    blk_cnt: usize,
+    inode_cnt: usize,
+    inode_idx: usize,
     checksum: u32,
 }
 
@@ -112,7 +124,28 @@ impl Superblock {
     }
 
     pub fn name(&self) -> &str {
-        unsafe { cstr_to_str_unchecked(&self.name[0]) }
+        unsafe { crate::strings::cstr_to_str_unchecked(&self.name[0]) }
+    }
+
+    fn blocks(&self) -> &[Block] {
+        unsafe {
+            slice::from_raw_parts(
+                transmute(self as *const Superblock),
+                self.blk_cnt,
+            )
+        }
+    }
+
+    pub fn inodes(&self) -> impl Iterator<Item = &Inode> {
+        InodeIterator::new(self)
+    }
+
+    pub fn reader<'a>(&'a self, inode: &'a Inode) -> impl FileHandle + Clone + 'a {
+        DataBlockReader::new(inode.blocks(self))
+    }
+
+    fn validate(&self) -> Result<()> {
+        self.inodes().map(|i| i.validate(&self)).collect()
     }
 }
 
@@ -146,7 +179,7 @@ pub struct Inode {
 }
 
 impl Inode {
-    fn validate(&self, kfs: &Kfs) -> Result<()> {
+    fn validate(&self, superblock: &Superblock) -> Result<()> {
         // Validate checksum
         let self_begin = unsafe {
             slice::from_raw_parts(
@@ -162,7 +195,7 @@ impl Inode {
         // Check if next inode and number of blk count are not out of bounds
         if self.d_blk_cnt >= MAX_DIRECT_BLK
             || self.i_blk_cnt >= MAX_INDIRECT_BLK
-            || self.next_inode >= kfs.superblock.blk_cnt
+            || self.next_inode >= superblock.blk_cnt
         {
             return Err(Error::OutOfBounds);
         }
@@ -173,13 +206,13 @@ impl Inode {
             .iter()
             .chain(self.indirect_blocks_idx())
         {
-            if index >= kfs.superblock.blk_cnt {
+            if index >= superblock.blk_cnt {
                 return Err(Error::OutOfBounds);
             }
         }
 
         // TODO Check indirect blocks
-        self.blocks(kfs).map(DataBlock::validate).collect()
+        self.blocks(superblock).map(DataBlock::validate).collect()
     }
 
     fn direct_blocks_idx(&self) -> &[usize] {
@@ -190,45 +223,45 @@ impl Inode {
         &self.i_blks[..self.i_blk_cnt]
     }
 
-    fn blocks<'a>(&'a self, kfs: &'a Kfs) -> DataBlockIterator {
+    fn blocks<'a>(&'a self, superblock: &'a Superblock) -> DataBlockIterator<'a> {
         if self.d_blk_cnt == 0 {
             unimplemented!();
         }
 
         DataBlockIterator {
-            kfs,
+            superblock,
             ids: self.direct_blocks_idx(),
         }
     }
 
     pub fn filename(&self) -> &str {
-        unsafe { cstr_to_str_unchecked(&self.filename[0]) }
+        unsafe { crate::strings::cstr_to_str_unchecked(&self.filename[0]) }
     }
 }
 
-struct InodeIterator<'a, 'k: 'a> {
-    kfs: &'a Kfs<'k>,
+struct InodeIterator<'a> {
+    superblock: &'a Superblock,
     idx: usize,
 }
 
-impl<'a, 'k: 'a> InodeIterator<'a, 'k> {
-    fn new(kfs: &'a Kfs<'k>) -> Self {
+impl<'a> InodeIterator<'a> {
+    fn new(superblock: &'a Superblock) -> Self {
         InodeIterator {
-            kfs: kfs,
-            idx: kfs.superblock.inode_idx,
+            superblock,
+            idx: superblock.inode_idx,
         }
     }
 }
 
-impl<'a, 'k: 'a> Iterator for InodeIterator<'a, 'k> {
+impl<'a> Iterator for InodeIterator<'a> {
     type Item = &'a Inode;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx == 0 || self.idx >= self.kfs.superblock.blk_cnt {
+        if self.idx == 0 || self.idx >= self.superblock.blk_cnt {
             return None;
         }
 
-        let inode = unsafe { self.kfs.blocks()[self.idx].as_inode() };
+        let inode = unsafe { self.superblock.blocks()[self.idx].as_inode() };
         self.idx = inode.next_inode;
         Some(inode)
     }
@@ -280,12 +313,12 @@ impl DataBlock {
 }
 
 #[derive(Clone)]
-struct DataBlockIterator<'a, 'k: 'a> {
-    kfs: &'a Kfs<'k>,
+struct DataBlockIterator<'a> {
+    superblock: &'a Superblock,
     ids: &'a [usize],
 }
 
-impl<'a, 'k: 'a> Iterator for DataBlockIterator<'a, 'k> {
+impl<'a> Iterator for DataBlockIterator<'a> {
     type Item = &'a DataBlock;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -293,7 +326,7 @@ impl<'a, 'k: 'a> Iterator for DataBlockIterator<'a, 'k> {
             None
         } else {
             let id = self.ids[0];
-            let block = unsafe { self.kfs.blocks()[id].as_data() };
+            let block = unsafe { self.superblock.blocks()[id].as_data() };
             self.ids = &self.ids[1..];
             Some(block)
         }
@@ -315,20 +348,4 @@ where
     }
 
     b << 16 | a
-}
-
-unsafe fn cstr_to_str_unchecked<'a>(c: *const u8) -> &'a str {
-    let len = strlen(c);
-    let s = slice::from_raw_parts(c, len);
-    ::core::str::from_utf8_unchecked(s)
-}
-
-// TODO Centralize
-unsafe fn strlen(c: *const u8) -> usize {
-    let mut len: usize = 0;
-    while *c.add(len) != 0 {
-        len += 1;
-    }
-
-    len
 }

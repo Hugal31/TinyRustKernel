@@ -34,15 +34,15 @@ impl KAllocator {
     pub unsafe fn new(memory_start: NonNull<u8>, memory_end: NonNull<u8>) -> KAllocator {
         let memory_start = memory_start.as_ptr();
         let memory_end = memory_end.as_ptr();
-        let memory_size = memory_end.offset_from(memory_start);
+        let memory_size = memory_end.offset_from(memory_start) as usize;
         assert!(
-            memory_size > size_of::<Block>() as isize,
+            memory_size > size_of::<Block>(),
             "The memory should be at least {} bytes long",
             size_of::<Block>()
         );
 
         let free_block = memory_start as *mut Block;
-        *free_block = Block::unused(memory_size as usize - size_of::<Block>());
+        *free_block = Block::unused(memory_size - size_of::<Block>());
 
         KAllocator {
             memory_start,
@@ -86,7 +86,7 @@ unsafe impl Alloc for KAllocator {
                 block.set_size(align_offset + layout.align() - size_of::<Block>());
                 block = block.next_block_mut();
                 block
-                    .set_size(previous_size - (align_offset + layout.align() - size_of::<Block>()));
+                    .set_size(previous_size - (align_offset + layout.align())); // I remove  "- size_of::<Block>()", now it works
                 debug_assert_eq!(0, block.data_address().align_offset(layout.align()));
                 break;
             } else {
@@ -198,7 +198,7 @@ impl Block {
 
     /// Unsafe because the caller needs to check the next block is in the usable memory
     unsafe fn next_block(&self) -> &'static Block {
-        &*(self.address().add(self.size_with_header()) as *mut Block)
+        &*(self.address().add(self.size_with_header()) as *const Block)
     }
 
     unsafe fn next_block_mut(&mut self) -> &'static mut Block {
@@ -411,6 +411,21 @@ mod tests {
             let layout = Layout::from_size_align(256, 256).unwrap();
             let ptr = allocator.alloc(layout).expect("Should allocate");
             assert_eq!(0, ptr.as_ptr().align_offset(256));
+        }
+    }
+
+    #[test]
+    fn test_bug1() {
+        let mut memory = vec![0u8; 8192];
+
+        unsafe {
+            let mut allocator = new_allocator(&mut memory[0..8192]);
+
+            let ptr1 = allocator.alloc(Layout::from_size_align(36, 4).unwrap()).expect("Should allocate");
+            let _ptr2 = allocator.alloc(Layout::from_size_align(43, 4096).unwrap()).expect("Should allocate");
+            let _ptr3 = allocator.alloc(Layout::from_size_align(12, 8).unwrap()).expect("Should allocate");
+
+            allocator.dealloc(ptr1, Layout::from_size_align(36, 4).unwrap());
         }
     }
 }

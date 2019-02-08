@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -10,13 +11,17 @@ lazy_static! {
 }
 
 pub struct Process {
-    pub file_descriptors: [Option<Box<dyn FileHandle + Sync + Send + 'static>>; Process::MAX_FD],
+    file_descriptors: [Option<Box<dyn FileHandle + Sync + Send + 'static>>; Process::MAX_FD],
+    pub memory: Vec<u8>,
+    pub brk: usize,
 }
 
 impl Process {
     const MAX_FD: usize = 32;
+    const MEMORY_SIZE: usize = 1024 * 10;
+
     pub fn new() -> Process {
-        Process {
+        let mut process = Process {
             file_descriptors: [
                 None, None, None, None,
                 None, None, None, None,
@@ -27,7 +32,11 @@ impl Process {
                 None, None, None, None,
                 None, None, None, None,
             ],
-        }
+            memory: Vec::with_capacity(Self::MEMORY_SIZE),
+            brk: 0,
+        };
+        process.memory.push(0);
+        process
     }
 
     /// Return an error of no file descriptor is available

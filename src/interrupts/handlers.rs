@@ -26,6 +26,7 @@ pub fn keyboard_handler(_context: &mut InterruptContext) {
 
 // TODO Use bingen ?
 const SYSCALL_WRITE: u32 = 1;
+const SYSCALL_SBRK: u32 = 2;
 const SYSCALL_GETKEY: u32 = 3;
 const SYSCALL_GETTICK: u32 = 4;
 const SYSCALL_OPEN: u32 = 5;
@@ -40,6 +41,7 @@ pub fn syscall_handler(context: &mut InterruptContext) {
     trace!("Received syscall {} ({:X?})", context.eax, context);
     let ret = match context.eax {
         SYSCALL_WRITE => syscall_write(context.ebx as *const u8, context.ecx as usize),
+        SYSCALL_SBRK => syscall_sbrk(context.ebx as isize),
         SYSCALL_GETKEY => syscall_getkey(),
         SYSCALL_GETTICK => syscall_gettick(),
         SYSCALL_PLAYSOUND => {
@@ -76,6 +78,21 @@ fn syscall_write(buffer: *const u8, size: usize) -> u32 {
     }
 
     c as u32
+}
+
+fn syscall_sbrk(inc: isize) -> u32 {
+    use crate::userland;
+
+    let mut process = userland::USER_PROCESS.lock();
+
+    if inc < 0 && (-inc as usize) > process.brk
+        || inc > 0 && process.brk + inc as usize > process.memory.capacity() {
+        return ::core::u32::MAX;
+    }
+
+    process.brk = (process.brk as isize + inc) as usize;
+
+    unsafe { process.memory.as_mut_ptr().add(process.brk) as u32 }
 }
 
 fn syscall_getkey() -> u32 {

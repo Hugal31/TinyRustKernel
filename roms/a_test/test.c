@@ -1,5 +1,6 @@
 #include <kstd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 void test_gettick(void)
 {
@@ -68,6 +69,38 @@ void test_filesystem(void)
     printf(": \"%s\"\n", buffer);
 
     printf("Close returned %d\n", close(fd));
+}
+
+void test_sbrk(void)
+{
+    int *i = malloc(sizeof(int));
+
+    if (i == NULL) {
+        puts("Could not alloc an int");
+    }
+    printf("Allocated ! address is 0x%p\n", i);
+
+    free(i);
+}
+
+void test_video(void)
+{
+    if (setvideo(VIDEO_GRAPHIC) != 0) {
+        puts("Cannot switch to video mode");
+        return;
+    }
+}
+
+void test_audio(void)
+{
+    struct melody *intro = load_sound("/intro.csf");
+
+    if (intro == NULL) {
+        puts("Could not load melody");
+        return;
+    }
+
+    playsound(intro, -1);
 }
 
 void entry(void)

@@ -1,6 +1,9 @@
+#include <assert.h>
 #include <kstd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sound.h>
+#include <graphic.h>
 
 void test_gettick(void)
 {
@@ -85,15 +88,18 @@ void test_sbrk(void)
 
 void test_video(void)
 {
-    if (setvideo(VIDEO_GRAPHIC) != 0) {
-        puts("Cannot switch to video mode");
-        return;
-    }
+    struct image *ball = load_image("/ball.bmp");
+    assert(ball != NULL);
+
+    switch_graphic();
+    draw_clear(BLACK);
+    draw_image(ball, 50, 50);
+    draw_end();
 }
 
 void test_audio(void)
 {
-    struct melody *intro = load_sound("/intro.csf");
+    struct melody *intro = load_sound("/intro.ksf");
 
     if (intro == NULL) {
         puts("Could not load melody");
@@ -108,9 +114,12 @@ void entry(void)
   puts("Start");
 
   test_filesystem();
-  test_keyboard();
+  // test_keyboard();
+  // test_sbrk();
+  test_video();
+  test_audio();
   test_gettick();
 
   puts("Stop");
-  for (;;) {}
+    for (;;) {}
 }

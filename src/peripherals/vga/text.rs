@@ -219,3 +219,7 @@ impl fmt::Write for TextWriter {
         Ok(())
     }
 }
+
+pub fn switch_to_text() {
+    vga::switch_mode3h()
+}

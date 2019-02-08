@@ -33,6 +33,8 @@ const SYSCALL_OPEN: u32 = 5;
 const SYSCALL_READ: u32 = 6;
 const SYSCALL_SEEK: u32 = 7;
 const SYSCALL_CLOSE: u32 = 8;
+const SYSCALL_SETVIDEO: u32 = 9;
+const SYSCALL_SWAPFRONTBUFFER: u32 = 10;
 const SYSCALL_PLAYSOUND: u32 = 11;
 
 // TODO Check pointers come from userland, and copy them ?
@@ -53,6 +55,8 @@ pub fn syscall_handler(context: &mut InterruptContext) {
         }),
         SYSCALL_SEEK => syscall_seek(context.ebx, context.ecx as isize, context.edx),
         SYSCALL_CLOSE => syscall_close(context.ebx),
+        SYSCALL_SETVIDEO => syscall_setvideo(context.ebx),
+        SYSCALL_SWAPFRONTBUFFER => syscall_swapfrontbuffer(context.ebx as *const u8),
         _ => ::core::u32::MAX,
     };
 
@@ -121,6 +125,10 @@ fn syscall_open(filename: &str, _flags: u32) -> u32 {
 
     let fs = crate::kfs::get_fs();
 
+    let filename = if filename.starts_with('/') {
+        &filename[1..]
+    } else { filename };
+
     if let Some(inode) = fs.inodes().find(|i| i.filename() == filename) {
         let reader = fs.reader(inode);
         crate::userland::USER_PROCESS.lock().store_file(Box::new(reader))
@@ -169,5 +177,31 @@ fn syscall_close(fd: u32) -> u32 {
 
     process.close_file(fd)
         .map(|_| 0)
+        .unwrap_or(::core::u32::MAX)
+}
+
+fn syscall_setvideo(mode: u32) -> u32 {
+    use crate::peripherals::vga;
+    match mode {
+        0 => {
+            vga::switch_to_graphic();
+            0
+        },
+        1 => {
+            vga::switch_to_text();
+            0
+        },
+        _ => ::core::u32::MAX,
+    }
+}
+
+fn syscall_swapfrontbuffer(buffer: *const u8) -> u32 {
+    use crate::peripherals::vga;
+
+    let buffer = unsafe {
+        slice::from_raw_parts(buffer, vga::FRONTBUFFER_LEN)
+    };
+
+    vga::swap_frontbuffer(buffer).map(|_| 0)
         .unwrap_or(::core::u32::MAX)
 }

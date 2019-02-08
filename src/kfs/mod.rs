@@ -224,7 +224,7 @@ impl Inode {
     }
 
     fn blocks<'a>(&'a self, superblock: &'a Superblock) -> DataBlockIterator<'a> {
-        if self.d_blk_cnt == 0 {
+        if self.i_blk_cnt != 0 {
             unimplemented!();
         }
 

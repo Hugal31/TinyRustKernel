@@ -55,7 +55,13 @@ pub fn startup(infos: &multiboot::MultibootInfo) {
         .max()
         .expect("There should be at least one elf section");
 
+    let mods_end = infos.mods()
+        .map(|m| m.mod_end as usize)
+        .max()
+        .expect("There should be at least one mode");
+
     min_memory_addr = max(min_memory_addr, kernel_end);
+    min_memory_addr = max(min_memory_addr, mods_end);
 
     let mut min_memory_addr = min_memory_addr as *mut u8;
     let max_memory_addr = max_memory_addr as *mut u8;

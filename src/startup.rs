@@ -91,6 +91,6 @@ fn say_welcome() {
 
     start_melody(STARTUP_MELODY, false);
 
-    //let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
-    //peripherals::timer::sleep(duration as usize);
+    let duration: u32 = STARTUP_MELODY.iter().map(|t| t.duration).sum();
+    crate::peripherals::timer::sleep(duration as usize);
 }

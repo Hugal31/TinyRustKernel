@@ -1,11 +1,12 @@
 #![feature(allocator_api)]
 #![feature(align_offset)]
 #![feature(ptr_offset_from)]
+#![feature(slice_ptr_get)]
 #![cfg_attr(not(test), no_std)]
 
 extern crate spin;
 
-use core::alloc::{Alloc, AllocErr, GlobalAlloc, Layout};
+use core::alloc::{Allocator, AllocError, GlobalAlloc, Layout};
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::{size_of, transmute};
@@ -71,10 +72,10 @@ impl KAllocator {
     }
 }
 
-unsafe impl Alloc for KAllocator {
-    unsafe fn alloc(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocErr> {
+unsafe impl Allocator for KAllocator {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         let mut blocks_iterator = self.blocks_for(layout);
-        let mut block = blocks_iterator.next().ok_or(AllocErr)?;
+        let mut block = blocks_iterator.next().ok_or(AllocError)?;
 
         // Handle alignment
         let mut align_offset = block.data_address().align_offset(layout.align());
@@ -84,14 +85,14 @@ unsafe impl Alloc for KAllocator {
             if block.size() >= align_offset + layout.align() - size_of::<Block>() + layout.size() {
                 let previous_size = block.size();
                 block.set_size(align_offset + layout.align() - size_of::<Block>());
-                block = block.next_block_mut();
+                block = unsafe { block.next_block_mut() };
                 block
                     .set_size(previous_size - (align_offset + layout.align())); // I remove  "- size_of::<Block>()", now it works
                 debug_assert_eq!(0, block.data_address().align_offset(layout.align()));
                 break;
             } else {
                 // Else, search another block.
-                block = blocks_iterator.next().ok_or(AllocErr)?;
+                block = blocks_iterator.next().ok_or(AllocError)?;
                 align_offset = block.data_address().align_offset(layout.align());
             }
         }
@@ -105,15 +106,15 @@ unsafe impl Alloc for KAllocator {
             let previous_size = block.size();
             block.set_size(layout.size());
 
-            let next_block = block.next_block_mut();
+            let next_block = unsafe { block.next_block_mut() };
             next_block.set_size(previous_size - layout.size() - size_of::<Block>());
             next_block.used = false;
         }
 
-        Ok(NonNull::new_unchecked(block.data_address()))
+        Ok(unsafe {NonNull::new_unchecked(block.data())})
     }
 
-    unsafe fn dealloc(&mut self, ptr: NonNull<u8>, _layout: Layout) {
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, _layout: Layout) {
         let block = Block::from_data_address(ptr.as_ptr());
         block.used = false;
 
@@ -152,15 +153,15 @@ unsafe impl GlobalAlloc for GlobalKalloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.allocator
             .lock()
-            .alloc(layout)
+            .allocate(layout)
             .expect("Should allocate")
-            .as_ptr()
+            .as_mut_ptr()
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         self.allocator
             .lock()
-            .dealloc(NonNull::new(ptr).unwrap(), layout)
+            .deallocate(NonNull::new(ptr).unwrap(), layout)
     }
 }
 
@@ -233,6 +234,11 @@ impl Block {
     fn data_address(&self) -> *mut u8 {
         unsafe { self.address().add(size_of::<Self>()) }
     }
+
+    #[inline]
+    fn data(&self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.data_address(), self.size()) }
+    }
 }
 
 struct BlockIterator<'a> {
@@ -303,7 +309,7 @@ mod tests {
         unsafe {
             let mut allocator = KAllocator::invalid();
 
-            assert!(allocator.alloc(Layout::new::<u32>()).is_err());
+            assert!(allocator.allocate(Layout::new::<u32>()).is_err());
         }
     }
 
@@ -318,11 +324,11 @@ mod tests {
             assert_block_count(&mut allocator, 1);
 
             let layout = Layout::from_size_align(1, 1).unwrap();
-            let ptr = allocator.alloc(layout).expect("Should allocate");
+            let ptr = allocator.allocate(layout).expect("Should allocate");
             assert_eq!(memory_start.add(size_of::<Block>()), ptr.as_ptr());
             assert_block_count(&mut allocator, 2);
 
-            allocator.dealloc(ptr, layout);
+            allocator.deallocate(ptr, layout);
             assert_block_count(&mut allocator, 1);
         };
     }
@@ -335,7 +341,7 @@ mod tests {
             let mut allocator = new_allocator(&mut memory);
 
             let layout = Layout::from_size_align(2048, 1).unwrap();
-            assert!(allocator.alloc(layout).is_err());
+            assert!(allocator.allocate(layout).is_err());
         };
     }
 
@@ -348,9 +354,9 @@ mod tests {
             let mut allocator = new_allocator(&mut memory);
 
             let layout = Layout::from_size_align(256, 1).unwrap();
-            let ptr1 = allocator.alloc(layout).expect("Should allocate");
-            let ptr2 = allocator.alloc(layout).expect("Should allocate");
-            let ptr3 = allocator.alloc(layout).expect("Should allocate");
+            let ptr1 = allocator.allocate(layout).expect("Should allocate");
+            let ptr2 = allocator.allocate(layout).expect("Should allocate");
+            let ptr3 = allocator.allocate(layout).expect("Should allocate");
 
             assert_block_count(&mut allocator, 4);
 
@@ -372,9 +378,9 @@ mod tests {
                 ptr3.as_ptr()
             );
 
-            allocator.dealloc(ptr1, layout);
-            allocator.dealloc(ptr3, layout);
-            allocator.dealloc(ptr2, layout);
+            allocator.deallocate(ptr1, layout);
+            allocator.deallocate(ptr3, layout);
+            allocator.deallocate(ptr2, layout);
 
             assert_block_count(&mut allocator, 1);
         };
@@ -388,14 +394,14 @@ mod tests {
             let mut allocator = new_allocator(&mut memory);
 
             let layout = Layout::from_size_align(256, 1).unwrap();
-            let _ptr1 = allocator.alloc(layout).expect("Should allocate");
-            let ptr2 = allocator.alloc(layout).expect("Should allocate");
-            let _ptr3 = allocator.alloc(layout).expect("Should allocate");
+            let _ptr1 = allocator.allocate(layout).expect("Should allocate");
+            let ptr2 = allocator.allocate(layout).expect("Should allocate");
+            let _ptr3 = allocator.allocate(layout).expect("Should allocate");
 
-            allocator.dealloc(ptr2, layout);
+            allocator.deallocate(ptr2, layout);
 
             let ptr4 = allocator
-                .alloc(Layout::from_size_align(254, 1).unwrap())
+                .allocate(Layout::from_size_align(254, 1).unwrap())
                 .expect("Should allocate");
             assert_eq!(ptr2, ptr4);
         }
@@ -409,7 +415,7 @@ mod tests {
             let mut allocator = new_allocator(&mut memory);
 
             let layout = Layout::from_size_align(256, 256).unwrap();
-            let ptr = allocator.alloc(layout).expect("Should allocate");
+            let ptr = allocator.allocate(layout).expect("Should allocate");
             assert_eq!(0, ptr.as_ptr().align_offset(256));
         }
     }
@@ -421,11 +427,11 @@ mod tests {
         unsafe {
             let mut allocator = new_allocator(&mut memory[0..8192]);
 
-            let ptr1 = allocator.alloc(Layout::from_size_align(36, 4).unwrap()).expect("Should allocate");
-            let _ptr2 = allocator.alloc(Layout::from_size_align(43, 4096).unwrap()).expect("Should allocate");
-            let _ptr3 = allocator.alloc(Layout::from_size_align(12, 8).unwrap()).expect("Should allocate");
+            let ptr1 = allocator.allocate(Layout::from_size_align(36, 4).unwrap()).expect("Should allocate");
+            let _ptr2 = allocator.allocate(Layout::from_size_align(43, 4096).unwrap()).expect("Should allocate");
+            let _ptr3 = allocator.allocate(Layout::from_size_align(12, 8).unwrap()).expect("Should allocate");
 
-            allocator.dealloc(ptr1, Layout::from_size_align(36, 4).unwrap());
+            allocator.deallocate(ptr1, Layout::from_size_align(36, 4).unwrap());
         }
     }
 }

@@ -2,11 +2,10 @@
 #![feature(alloc)]
 #![feature(alloc_error_handler)]
 #![feature(abi_x86_interrupt)]
-#![feature(asm)]
+#![feature(llvm_asm)]
 #![feature(core_intrinsics)]
 #![feature(global_asm)]
 #![feature(naked_functions)]
-#![feature(const_transmute)]
 #![feature(lang_items)]
 #![feature(panic_info_message)]
 #![no_std]
@@ -67,7 +66,7 @@ pub extern "C" fn k_main(magic: u32, infos: &'static multiboot::MultibootInfo) -
 
     info!("Shutdown");
     loop {
-        unsafe { asm!("hlt\n\t" :::: "volatile") }
+        unsafe { llvm_asm!("hlt\n\t" :::: "volatile") }
     }
 }
 
@@ -99,7 +98,7 @@ fn load_and_execute_module(infos: &multiboot::MultibootInfo, m: &'static multibo
 
 fn abort() -> ! {
     loop {
-        unsafe { asm!("hlt\n\t" :::: "volatile") };
+        unsafe { llvm_asm!("hlt\n\t" :::: "volatile") };
     }
 }
 

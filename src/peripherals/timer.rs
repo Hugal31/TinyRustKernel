@@ -23,6 +23,6 @@ pub fn uptime() -> usize {
 pub fn sleep(milliseconds: usize) {
     let goal = COUNTER.load(Ordering::Acquire) + milliseconds / 10;
     while COUNTER.load(Ordering::Acquire) != goal {
-        unsafe { asm!("hlt") };
+        unsafe { llvm_asm!("hlt") };
     }
 }

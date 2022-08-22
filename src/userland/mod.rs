@@ -24,7 +24,7 @@ where
     let stack_addr = unsafe { ALLOCATOR.alloc(Layout::from_size_align_unchecked(0x20000, 8)) };
 
     unsafe {
-        asm!(
+        llvm_asm!(
             "mov $0, %ax // Init data segment registers
         mov %ax, %ds
         mov %ax, %es

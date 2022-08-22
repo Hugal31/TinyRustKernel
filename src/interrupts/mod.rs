@@ -11,7 +11,7 @@ use crate::arch::i386::instructions::lgdt::DPL;
 use crate::arch::i386::pic::PIC;
 use crate::arch::i386::pit::PIT;
 
-// TODO Use #[naked] and asm!
+// TODO Use #[naked] and llvm_asm!
 extern "C" {
     fn isr_0() -> !;
     fn isr_64() -> !;
@@ -81,5 +81,5 @@ fn load_idt() {
 }
 
 fn enable() {
-    unsafe { asm!("sti" :::: "volatile") }
+    unsafe { llvm_asm!("sti" :::: "volatile") }
 }

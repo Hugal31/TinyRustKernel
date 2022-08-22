@@ -1,4 +1,4 @@
-use core::mem::size_of;
+use core::{arch::asm, mem::size_of};
 
 use bitfield::*;
 
@@ -139,7 +139,7 @@ pub struct GDTR {
 
 pub fn set_lgdt(gdtr: &GDTR) {
     unsafe {
-        asm!("lgdt ($0)\n\t"
+        llvm_asm!("lgdt ($0)\n\t"
              :
              : "r" (gdtr)
              : "memory");
@@ -148,7 +148,7 @@ pub fn set_lgdt(gdtr: &GDTR) {
 
 pub fn set_protected_mode() {
     unsafe {
-        asm!("movl $$0x01, %edx
+        llvm_asm!("movl $$0x01, %edx
         movl %cr0, %eax
         orl %edx, %eax
         movl %eax, %cr0\n\t"

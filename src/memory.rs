@@ -27,7 +27,7 @@ pub fn segment() {
         // Init TSS SS0 and ESP0
         let stack: usize;
 
-        asm!("movl %esp, $0" : "=r" (stack));
+        llvm_asm!("movl %esp, $0" : "=r" (stack));
 
         TSS.ss0 = KERNEL_DATA_SEGMENT as u32;
         TSS.esp0 = stack as u32;
@@ -52,7 +52,7 @@ fn load_segments(code_segment: usize, data_segment: usize) {
     unsafe {
         // TODO Refactor, move architecture-dependent code
         // Update code segment
-        asm!("pushl $0
+        llvm_asm!("pushl $0
         pushl $$1f
         lret
         1:\n\t"
@@ -62,7 +62,7 @@ fn load_segments(code_segment: usize, data_segment: usize) {
              : "volatile");
 
         // Update data segments
-        asm!("movw $0, %ds
+        llvm_asm!("movw $0, %ds
         movw $0, %es
         movw $0, %fs
         movw $0, %gs
@@ -93,7 +93,7 @@ fn set_protected_mode() {
 
 fn init_tss_register() {
     unsafe {
-        asm!("ltr $0\n\t"
+        llvm_asm!("ltr $0\n\t"
              :
              : "{ax}" (TSS_SEGMENT as u16)
              :

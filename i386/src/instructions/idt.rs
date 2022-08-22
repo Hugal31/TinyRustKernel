@@ -1,3 +1,4 @@
+use core::arch::asm;
 use bitfield::*;
 
 use super::lgdt::DPL;
@@ -45,7 +46,7 @@ pub struct IDTR {
 
 pub fn lidt(idtr: &IDTR) {
     unsafe {
-        asm!("lidt ($0)\n\t"
+        llvm_asm!("lidt ($0)\n\t"
              :
              : "r" (idtr)
              : "memory");
